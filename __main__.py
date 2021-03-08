@@ -15,7 +15,7 @@ def main():
 
     clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr)
 
-    process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0])
+    process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr, cnv)
     print("clonealign pyro is finished!")
 
 
