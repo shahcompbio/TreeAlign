@@ -29,7 +29,9 @@ def process_output_matrices(clone_prob, gene_type_score, clone_prob_path, gene_t
     clone_prob.rename(columns=clone_prob_colnames, inplace=True)
 
     gene_type_score_rownames = {i:c for i, c in enumerate(expr.index)}
-    gene_type_score.rename(index=gene_type_score_rownames, inplace=True)
+    if gene_type_score != None:
+        gene_type_score.rename(index=gene_type_score_rownames, inplace=True)
+        pd.DataFrame(gene_type_score.to_csv(gene_type_score_path))
 
     pd.DataFrame(clone_prob.to_csv(clone_prob_path))
-    pd.DataFrame(gene_type_score.to_csv(gene_type_score_path))
+
