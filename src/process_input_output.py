@@ -18,7 +18,7 @@ def process_input_matrices(expr_path, cnv_path, cnv_cutoff=6):
     expr = torch.tensor(expr_csv.values, dtype=torch.float)
     expr = torch.transpose(expr, 0, 1)
 
-    return expr, cnv
+    return expr, cnv, expr_csv, cnv_csv
 
 
 def process_output_matrices(clone_prob, gene_type_score, clone_prob_path, gene_type_score_path, expr, cnv):

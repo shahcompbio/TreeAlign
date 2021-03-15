@@ -10,12 +10,11 @@ def main():
     parser.add_argument('-s', '--gene_score', nargs=1, help='output path for gene type scores')
     args = parser.parse_args()
 
-    print(args.expr)
-    expr, cnv = process_input_matrices(args.expr[0], args.clone[0])
+    expr, cnv, expr_csv, cnv_csv = process_input_matrices(args.expr[0], args.clone[0])
 
     clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr)
 
-    process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr, cnv)
+    process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr_csv, cnv_csv)
     print("clonealign pyro is finished!")
 
 
