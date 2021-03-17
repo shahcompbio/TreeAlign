@@ -48,7 +48,7 @@ def clonealign_pyro_gene_model(cnv, expr):
 
         # sample the gene_type_score from uniform distribution.
         # the score reflects how much the copy number influence expression.
-        gene_type_score = pyro.sample('gene_type_score', dist.Uniform(0, 1))
+        gene_type_score = pyro.sample('gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
 
 
     with pyro.plate('cell', num_of_cells):
@@ -62,7 +62,7 @@ def clonealign_pyro_gene_model(cnv, expr):
 
         # construct expected_expr
         expected_expr = per_copy_expr * (
-                    Vindex(cnv)[clone_assign] * gene_type_score + copy_number_mean * (1 - gene_type_score)) * torch.exp(
+                    Vindex(cnv)[clone_assign] * gene_type_score[0] + copy_number_mean * gene_type_score[1]) * torch.exp(
             torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
