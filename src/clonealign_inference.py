@@ -62,7 +62,7 @@ def clonealign_pyro_gene_model(cnv, expr):
 
         # construct expected_expr
         expected_expr = per_copy_expr * (
-                    Vindex(cnv)[clone_assign] * gene_type_score[0] + copy_number_mean * gene_type_score[1]) * torch.exp(
+                    Vindex(cnv)[clone_assign] * gene_type_score[:, 0] + copy_number_mean * gene_type_score[:, 1]) * torch.exp(
             torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial

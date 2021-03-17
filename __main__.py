@@ -24,7 +24,7 @@ def main():
 
     expr, cnv, expr_csv, cnv_csv = process_input_matrices(args.expr[0], args.clone[0])
 
-    clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr)
+    clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr, args.gene_mode)
 
     process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr_csv, cnv_csv)
     print("clonealign pyro is finished!")
