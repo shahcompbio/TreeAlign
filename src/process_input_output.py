@@ -10,6 +10,10 @@ def process_input_matrices(expr_path, cnv_path, cnv_cutoff=6):
     cnv_csv = cnv_csv[cnv_csv.var(1) > 0]
     expr_csv = expr_csv.loc[cnv_csv.index,]
 
+    # remove genes that don't have expression
+    expr_csv = expr_csv[expr_csv.mean(1) > 0]
+    cnv_csv = cnv_csv.loc[expr_csv.index, ]
+
     cnv = torch.tensor(cnv_csv.values, dtype=torch.float)
     cnv = torch.transpose(cnv, 0, 1)
 

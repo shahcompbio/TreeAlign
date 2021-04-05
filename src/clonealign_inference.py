@@ -29,7 +29,8 @@ def clonealign_pyro_gene_model(cnv, expr):
     softplus = Softplus()
 
     # initialize per_copy_expr using the data (This typically speeds up convergence)
-    per_copy_expr_guess = torch.mean(expr / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1)), 0)
+    expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+    per_copy_expr_guess = torch.mean(expr, 0)
 
     # calculate copy number mean
     copy_number_mean = torch.mean(cnv, 0)
@@ -66,7 +67,7 @@ def clonealign_pyro_gene_model(cnv, expr):
             torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count = 2000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 @config_enumerate
@@ -78,7 +79,8 @@ def clonealign_pyro_model(cnv, expr):
     softplus = Softplus()
 
     # initialize per_copy_expr using the data (This typically speeds up convergence)
-    per_copy_expr_guess = torch.mean(expr / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1)), 0)
+    expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+    per_copy_expr_guess = torch.mean(expr, 0)
 
     # calculate copy number mean
     copy_number_mean = torch.mean(cnv, 0)
@@ -110,7 +112,7 @@ def clonealign_pyro_model(cnv, expr):
             torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count = 2000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 def run_clonealign_pyro(cnv, expr, is_gene_type=False):
