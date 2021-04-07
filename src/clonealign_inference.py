@@ -124,13 +124,11 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False):
 
     if is_gene_type:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_gene_model,
-                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']),
-                                 init_loc_fn=init_to_feasible)
+                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']))
         svi = SVI(clonealign_pyro_gene_model, global_guide, optim, loss=elbo)
     else:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_model,
-                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob','psi']),
-                                 init_loc_fn=init_to_feasible)
+                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob','psi']))
         svi = SVI(clonealign_pyro_model, global_guide, optim, loss=elbo)
 
     # start inference

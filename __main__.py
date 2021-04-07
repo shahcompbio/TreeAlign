@@ -13,7 +13,7 @@ def str2bool(v):
 
 def add_suffix(x, suffix):
     x_elements = x.split('.')
-    x_elements.insert(len(x_elements) - 1, "_" + str(suffix))
+    x_elements.insert(len(x_elements) - 1, str(suffix))
     x_path = '.'.join(x_elements)
     return x_path
 
