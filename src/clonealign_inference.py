@@ -116,11 +116,10 @@ def clonealign_pyro_model(cnv, expr):
         pyro.sample('obs', dist.Multinomial(total_count = 2000, probs=expected_expr, validate_args=False), obs=expr)
 
 
-def run_clonealign_pyro(cnv, expr, is_gene_type=False, random_seed=10):
+def run_clonealign_pyro(cnv, expr, is_gene_type=False):
     optim = pyro.optim.Adam({'lr': 0.1, 'betas': [0.8, 0.99]})
     elbo = TraceEnum_ELBO(max_plate_nesting=1)
 
-    pyro.set_rng_seed(random_seed)
     pyro.clear_param_store()
 
     if is_gene_type:
@@ -136,7 +135,7 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False, random_seed=10):
 
     # start inference
     losses = []
-    max_iter = 200
+    max_iter = 400
     rel_tol = 1e-5
     print('Start Inference.')
     for i in range(max_iter):
