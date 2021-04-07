@@ -1,0 +1,46 @@
+Start Inference.
+
+.......................................................................................................................................................................................................simulation finished
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@jb24>
+Subject: Job 73836691: <python simulate_with_real_data.py -e ../data/SPECTRUM-OV-022_expr_clonealign_input.csv -c ../data/SPECTRUM-OV-022_cnv_clonealign_input.csv -g 5 -g 10 -g 20 -g 30 -g 40 -g 50 -g 60 -g 70 -g 80 -g 90> in cluster <juno> Done
+
+Job <python simulate_with_real_data.py -e ../data/SPECTRUM-OV-022_expr_clonealign_input.csv -c ../data/SPECTRUM-OV-022_cnv_clonealign_input.csv -g 5 -g 10 -g 20 -g 30 -g 40 -g 50 -g 60 -g 70 -g 80 -g 90> was submitted from host <juno> by user <shih> in cluster <juno> at Tue Apr  6 16:26:06 2021
+Job was executed on host(s) <7*jb24>, in queue <general>, as user <shih> in cluster <juno> at Tue Apr  6 16:30:46 2021
+</home/shih> was used as the home directory.
+</work/shah/users/shih/clonealign_pyro/clonealign_pyro/scripts> was used as the working directory.
+Started at Tue Apr  6 16:30:46 2021
+Terminated at Tue Apr  6 16:43:47 2021
+Results reported at Tue Apr  6 16:43:47 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+python simulate_with_real_data.py -e ../data/SPECTRUM-OV-022_expr_clonealign_input.csv -c ../data/SPECTRUM-OV-022_cnv_clonealign_input.csv -g 5 -g 10 -g 20 -g 30 -g 40 -g 50 -g 60 -g 70 -g 80 -g 90
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   1925.18 sec.
+    Max Memory :                                 3 GB
+    Average Memory :                             1.51 GB
+    Total Requested Memory :                     70.00 GB
+    Delta Memory :                               67.00 GB
+    Max Swap :                                   -
+    Max Processes :                              3
+    Max Threads :                                11
+    Run time :                                   782 sec.
+    Turnaround time :                            1061 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <err> for stderr output of this job.
+

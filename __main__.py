@@ -13,7 +13,7 @@ def str2bool(v):
 
 def add_suffix(x, suffix):
     x_elements = x.split('.')
-    x_elements.insert(len(x_elements) - 1, "_" + str(suffix))
+    x_elements.insert(len(x_elements) - 1, str(suffix))
     x_path = '.'.join(x_elements)
     return x_path
 
@@ -33,7 +33,7 @@ def main():
 
     repeat_times = int(args.repeat_times)
     for i in range(repeat_times):
-        clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr, args.gene_mode, i)
+        clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr, args.gene_mode)
         if i == 0:
             process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr_csv, cnv_csv)
         else:

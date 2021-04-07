@@ -116,27 +116,24 @@ def clonealign_pyro_model(cnv, expr):
         pyro.sample('obs', dist.Multinomial(total_count = 2000, probs=expected_expr, validate_args=False), obs=expr)
 
 
-def run_clonealign_pyro(cnv, expr, is_gene_type=False, random_seed=10):
+def run_clonealign_pyro(cnv, expr, is_gene_type=False):
     optim = pyro.optim.Adam({'lr': 0.1, 'betas': [0.8, 0.99]})
     elbo = TraceEnum_ELBO(max_plate_nesting=1)
 
-    pyro.set_rng_seed(random_seed)
     pyro.clear_param_store()
 
     if is_gene_type:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_gene_model,
-                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']),
-                                 init_loc_fn=init_to_feasible)
+                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']))
         svi = SVI(clonealign_pyro_gene_model, global_guide, optim, loss=elbo)
     else:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_model,
-                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob','psi']),
-                                 init_loc_fn=init_to_feasible)
+                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob','psi']))
         svi = SVI(clonealign_pyro_model, global_guide, optim, loss=elbo)
 
     # start inference
     losses = []
-    max_iter = 200
+    max_iter = 400
     rel_tol = 1e-5
     print('Start Inference.')
     for i in range(max_iter):
