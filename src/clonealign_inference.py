@@ -33,9 +33,6 @@ def clonealign_pyro_gene_model(cnv, expr):
     expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
     per_copy_expr_guess = torch.mean(expr, 0)
 
-    # calculate copy number mean
-    copy_number_mean = torch.mean(cnv, 0)
-
     # draw chi from gamma
     chi = pyro.sample('chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
 
@@ -45,13 +42,17 @@ def clonealign_pyro_gene_model(cnv, expr):
                                     dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
         per_copy_expr = softplus(per_copy_expr)
 
+        # draw mean_expr from another softplus-transformed Normal distribution
+        mean_expr = pyro.sample('mean_expr',
+                                dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+        mean_expr = softplus(mean_expr)
+
         # draw w from Normal
         w = pyro.sample('w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
 
         # sample the gene_type_score from uniform distribution.
         # the score reflects how much the copy number influence expression.
         gene_type_score = pyro.sample('gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
-
 
     with pyro.plate('cell', num_of_cells):
         # draw clone_assign_prob from Dir
@@ -63,12 +64,12 @@ def clonealign_pyro_gene_model(cnv, expr):
         psi = pyro.sample('psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
 
         # construct expected_expr
-        expected_expr = per_copy_expr * (
-                    Vindex(cnv)[clone_assign] * gene_type_score[:, 0] + copy_number_mean * gene_type_score[:, 1]) * torch.exp(
-            torch.matmul(psi, torch.transpose(w, 0, 1)))
+        expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type_score[:, 0] +
+                         mean_expr * gene_type_score[:, 1]) * \
+                        torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(total_count = 2000, probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 @config_enumerate
@@ -98,7 +99,6 @@ def clonealign_pyro_model(cnv, expr):
         # draw w from Normal
         w = pyro.sample('w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
 
-
     with pyro.plate('cell', num_of_cells):
         # draw clone_assign_prob from Dir
         clone_assign_prob = pyro.sample('clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
@@ -113,7 +113,7 @@ def clonealign_pyro_model(cnv, expr):
             torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(total_count = 2000, probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 def run_clonealign_pyro(cnv, expr, is_gene_type=False):
@@ -124,11 +124,12 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False):
 
     if is_gene_type:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_gene_model,
-                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']))
+                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'mean_expr',
+                                                       'clone_assign_prob', 'psi']))
         svi = SVI(clonealign_pyro_gene_model, global_guide, optim, loss=elbo)
     else:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_model,
-                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob','psi']))
+                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']))
         svi = SVI(clonealign_pyro_model, global_guide, optim, loss=elbo)
 
     # start inference

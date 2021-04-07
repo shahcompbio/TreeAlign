@@ -28,9 +28,6 @@ def clonealign_pyro(cnv, expr):
     expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
     per_copy_expr_guess = torch.mean(expr, 0)
 
-    # calculate copy number mean
-    copy_number_mean = torch.mean(cnv, 0)
-
     # draw chi from gamma
     chi = pyro.sample('chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
 
@@ -38,11 +35,12 @@ def clonealign_pyro(cnv, expr):
         # draw per_copy_expr from softplus-transformed Normal distribution
         per_copy_expr = pyro.sample('per_copy_expr',
                                     dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
-
         per_copy_expr = softplus(per_copy_expr)
 
-        # instead of softplus-transformed normal, use negative binomial instead for per_copy_expr
-        # per_copy_expr = pyro.sample('per_copy_expr', dist.NegativeBinomial())
+        # draw mean_expr from another softplus-transformed Normal distribution
+        mean_expr = pyro.sample('mean_expr',
+                                dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+        mean_expr = softplus(mean_expr)
 
         # draw w from Normal
         w = pyro.sample('w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
@@ -51,21 +49,19 @@ def clonealign_pyro(cnv, expr):
         # the score reflects how much the copy number influence expression.
         gene_type_score = pyro.sample('gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
 
-    # gene_type = pyro.sample('gene_type', dist.Bernoulli(probs = gene_type_score))
-
     with pyro.plate('cell', num_of_cells):
         # draw clone_assign_prob from Dir
-        clone_assign_prob = pyro.sample('clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 0.1))
+        clone_assign_prob = pyro.sample('clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
         # draw clone_assign from Cat
         clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
         # draw psi from Normal
         psi = pyro.sample('psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
 
-        expected_expr = per_copy_expr * (
-                Vindex(cnv)[clone_assign] * gene_type_score[:, 0] + copy_number_mean * gene_type_score[:,
-                                                                                       1]) * torch.exp(
-            torch.matmul(psi, torch.transpose(w, 0, 1)))
+        # construct expected_expr
+        expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type_score[:, 0] +
+                         mean_expr * gene_type_score[:, 1]) * \
+                        torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
         pyro.sample('obs', dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False), obs=expr)
@@ -82,7 +78,7 @@ def get_parameters(expr, cnv):
 
     # AutoGuide
     global_guide = AutoDelta(poutine.block(clonealign_pyro,
-                                           expose=['chi', 'per_copy_expr', 'w', 'k', 'gene_type_score',
+                                           expose=['chi', 'per_copy_expr', 'mean_expr', 'w', 'k', 'gene_type_score',
                                                    'clone_assign_prob', 'psi']))
     # put together SVI object
     svi = SVI(clonealign_pyro, global_guide, optim, loss=elbo)
@@ -106,17 +102,15 @@ def get_parameters(expr, cnv):
 
     map_estimates = global_guide(cnv, expr)
 
-    clone_assign_prob = map_estimates['clone_assign_prob']
-    gene_type_score = map_estimates['gene_type_score']
-
     per_copy_expr = map_estimates['per_copy_expr']
+    mean_expr = map_estimates['mean_expr']
     psi = map_estimates['psi']
-    chi = map_estimates['chi']
     w = map_estimates['w']
 
-    return cnv, expr, per_copy_expr, psi, w
+    return cnv, expr, per_copy_expr, mean_expr, psi, w
 
-def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq):
+
+def clonealign_pyro_simulation(cnv, expr, per_copy_expr, mean_expr, psi, w, gene_type_freq):
     num_of_clones = len(cnv)
     num_of_cells = len(expr)
     num_of_genes = len(expr[0])
@@ -124,9 +118,8 @@ def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq)
     softplus = Softplus()
 
     # calculate copy number mean
-    copy_number_mean = torch.mean(cnv, 0)
-
     per_copy_expr = softplus(per_copy_expr)
+    mean_expr = softplus(mean_expr)
 
     # simulate gene_type_scores
     gene_type_score_0 = torch.zeros(num_of_genes)
@@ -148,10 +141,9 @@ def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq)
         # draw clone_assign from Cat
         clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
-        expected_expr = per_copy_expr * (
-                Vindex(cnv)[clone_assign] * gene_type_score[:, 0] + copy_number_mean * gene_type_score[:,
-                                                                                       1]) * torch.exp(
-            torch.matmul(psi, torch.transpose(w, 0, 1)))
+        expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type_score[:, 0] +
+                         mean_expr * gene_type_score[:, 1]) * \
+                        torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
         expr_simulated = pyro.sample('obs',
