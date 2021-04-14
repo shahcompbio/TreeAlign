@@ -162,4 +162,4 @@ def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq,
         expr_simulated = pyro.sample('obs',
                                      dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False))
 
-    return expr_simulated, gene_type_score, clone_assign
+    return expr_simulated, gene_type_score, clone_assign, random_cells, random_genes

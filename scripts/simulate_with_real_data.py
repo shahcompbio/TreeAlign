@@ -33,7 +33,7 @@ def main():
     for gene_type_freq in gene_type_freqs:
         for cell_count in cell_counts:
             for gene_count in gene_counts:
-                expr_simulated, gene_type_score_simulated, clone_assign_simulated = clonealign_pyro_simulation(cnv, expr,
+                expr_simulated, gene_type_score_simulated, clone_assign_simulated, random_cells, random_genes = clonealign_pyro_simulation(cnv, expr,
                                                                                                                per_copy_expr,
                                                                                                                psi, w,
                                                                                                                int(gene_type_freq),
@@ -47,8 +47,8 @@ def main():
                 clone_assign_simulated_dataframe = pd.DataFrame(clone_assign_simulated.data.numpy())
 
                 # rename
-                cell_name = {i: c for i, c in enumerate(expr_csv.columns)}
-                gene_name = {i: c for i, c in enumerate(expr_csv.index)}
+                cell_name = {i: c for i, c in enumerate(expr_csv.columns[random_cells])}
+                gene_name = {i: c for i, c in enumerate(expr_csv.index[random_genes])}
 
                 expr_simulated_dataframe.rename(index=gene_name, inplace=True)
                 expr_simulated_dataframe.rename(columns=cell_name, inplace=True)
