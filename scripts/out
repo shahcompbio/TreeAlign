@@ -1,41 +1,131 @@
-Start Inference.
-
-...............................................................................................................................ELBO converged at iteration 128
-simulation finished
 
 ------------------------------------------------------------
-Sender: LSF System <lsfadmin@jb19>
-Subject: Job 73939989: <python simulate_with_real_data.py -e ../data/SPECTRUM-OV-022_expr_clonealign_input.csv -c ../data/SPECTRUM-OV-022_cnv_clonealign_input.csv -g 5 -g 10 -g 20 -g 30 -g 40 -g 50 -g 60 -g 70 -g 80 -g 90 -o /work/shah/users/shih/clonealign_pyro/data/simulation/> in cluster <juno> Done
+Sender: LSF System <lsfadmin@je21>
+Subject: Job 75243708: <sh simulate> in cluster <juno> Exited
 
-Job <python simulate_with_real_data.py -e ../data/SPECTRUM-OV-022_expr_clonealign_input.csv -c ../data/SPECTRUM-OV-022_cnv_clonealign_input.csv -g 5 -g 10 -g 20 -g 30 -g 40 -g 50 -g 60 -g 70 -g 80 -g 90 -o /work/shah/users/shih/clonealign_pyro/data/simulation/> was submitted from host <juno> by user <shih> in cluster <juno> at Wed Apr  7 16:50:33 2021
-Job was executed on host(s) <10*jb19>, in queue <general>, as user <shih> in cluster <juno> at Wed Apr  7 16:50:35 2021
+Job <sh simulate> was submitted from host <juno> by user <shih> in cluster <juno> at Wed Apr 14 13:02:27 2021
+Job was executed on host(s) <10*je21>, in queue <general>, as user <shih> in cluster <juno> at Wed Apr 14 13:02:31 2021
 </home/shih> was used as the home directory.
 </work/shah/users/shih/clonealign_pyro/clonealign_pyro/scripts> was used as the working directory.
-Started at Wed Apr  7 16:50:35 2021
-Terminated at Wed Apr  7 16:55:36 2021
-Results reported at Wed Apr  7 16:55:36 2021
+Started at Wed Apr 14 13:02:31 2021
+Terminated at Wed Apr 14 13:02:31 2021
+Results reported at Wed Apr 14 13:02:31 2021
 
 Your job looked like:
 
 ------------------------------------------------------------
 # LSBATCH: User input
-python simulate_with_real_data.py -e ../data/SPECTRUM-OV-022_expr_clonealign_input.csv -c ../data/SPECTRUM-OV-022_cnv_clonealign_input.csv -g 5 -g 10 -g 20 -g 30 -g 40 -g 50 -g 60 -g 70 -g 80 -g 90 -o /work/shah/users/shih/clonealign_pyro/data/simulation/
+sh simulate
+------------------------------------------------------------
+
+Exited with exit code 127.
+
+Resource usage summary:
+
+    CPU time :                                   0.05 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     100.00 GB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              -
+    Max Threads :                                -
+    Run time :                                   1 sec.
+    Turnaround time :                            4 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <err> for stderr output of this job.
+
+Start Inference.
+
+.................................................................................................................................................ELBO converged at iteration 146
+simulation finished
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@je21>
+Subject: Job 75243726: <sh simulate.sh> in cluster <juno> Done
+
+Job <sh simulate.sh> was submitted from host <juno> by user <shih> in cluster <juno> at Wed Apr 14 13:02:38 2021
+Job was executed on host(s) <10*je21>, in queue <general>, as user <shih> in cluster <juno> at Wed Apr 14 13:02:43 2021
+</home/shih> was used as the home directory.
+</work/shah/users/shih/clonealign_pyro/clonealign_pyro/scripts> was used as the working directory.
+Started at Wed Apr 14 13:02:43 2021
+Terminated at Wed Apr 14 13:06:06 2021
+Results reported at Wed Apr 14 13:06:06 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+sh simulate.sh
 ------------------------------------------------------------
 
 Successfully completed.
 
 Resource usage summary:
 
-    CPU time :                                   1240.12 sec.
-    Max Memory :                                 2 GB
-    Average Memory :                             1.32 GB
+    CPU time :                                   1126.65 sec.
+    Max Memory :                                 3 GB
+    Average Memory :                             1.33 GB
     Total Requested Memory :                     100.00 GB
-    Delta Memory :                               98.00 GB
+    Delta Memory :                               97.00 GB
     Max Swap :                                   -
-    Max Processes :                              3
-    Max Threads :                                14
-    Run time :                                   301 sec.
-    Turnaround time :                            303 sec.
+    Max Processes :                              4
+    Max Threads :                                15
+    Run time :                                   205 sec.
+    Turnaround time :                            208 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <err> for stderr output of this job.
+
+Start Inference.
+
+...................................................................................................................................................ELBO converged at iteration 148
+simulation finished
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@jx02>
+Subject: Job 75264231: <sh simulate.sh> in cluster <juno> Done
+
+Job <sh simulate.sh> was submitted from host <juno> by user <shih> in cluster <juno> at Wed Apr 14 16:14:42 2021
+Job was executed on host(s) <10*jx02>, in queue <general>, as user <shih> in cluster <juno> at Wed Apr 14 16:39:24 2021
+</home/shih> was used as the home directory.
+</work/shah/users/shih/clonealign_pyro/clonealign_pyro/scripts> was used as the working directory.
+Started at Wed Apr 14 16:39:24 2021
+Terminated at Wed Apr 14 16:46:49 2021
+Results reported at Wed Apr 14 16:46:49 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+sh simulate.sh
+------------------------------------------------------------
+
+Successfully completed.
+
+Resource usage summary:
+
+    CPU time :                                   1659.56 sec.
+    Max Memory :                                 3 GB
+    Average Memory :                             1.47 GB
+    Total Requested Memory :                     100.00 GB
+    Delta Memory :                               97.00 GB
+    Max Swap :                                   -
+    Max Processes :                              4
+    Max Threads :                                15
+    Run time :                                   446 sec.
+    Turnaround time :                            1927 sec.
 
 The output (if any) is above this job summary.
 

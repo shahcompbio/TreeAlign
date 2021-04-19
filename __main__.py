@@ -35,6 +35,7 @@ def main():
     for i in range(repeat_times):
         clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr, args.gene_mode)
         if i == 0:
+            print("output the first results!")
             process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr_csv, cnv_csv)
         else:
             assignment_path = add_suffix(args.assignment[0], i)

@@ -8,11 +8,12 @@ def process_input_matrices(expr_path, cnv_path, cnv_cutoff=6):
 
     # remove genes that are not in the cnv region
     cnv_csv = cnv_csv[cnv_csv.var(1) > 0]
-    expr_csv = expr_csv.loc[cnv_csv.index,]
-
-    # remove genes that don't have expression
     expr_csv = expr_csv[expr_csv.mean(1) > 0]
-    cnv_csv = cnv_csv.loc[expr_csv.index, ]
+    
+    intersect_index = cnv_csv.index.intersection(expr_csv.index)
+    
+    expr_csv = expr_csv.loc[intersect_index,]
+    cnv_csv = cnv_csv.loc[intersect_index ]
 
     cnv = torch.tensor(cnv_csv.values, dtype=torch.float)
     cnv = torch.transpose(cnv, 0, 1)
