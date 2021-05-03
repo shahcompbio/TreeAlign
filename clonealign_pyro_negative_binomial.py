@@ -48,7 +48,7 @@ cnv[cnv > 6] = 6
 expr = torch.tensor(expr_csv.values, dtype = torch.float)
 expr = torch.transpose(expr, 0, 1)
 
-expr = expr[0:20]
+expr = expr[0:10]
 expr = expr[:, torch.mean(expr, dim = 0) > 0]
 
 cnv = cnv[:, range(expr.shape[1])]
@@ -134,7 +134,7 @@ def guide(cnv, expr):
 
 
     gene_plate = pyro.plate('gene', num_of_genes, dim=-1)
-    cell_plate = pyro.plate('cell', num_of_cells)
+    cell_plate = pyro.plate('cell', num_of_cells, subsample_size = 5)
 
     per_copy_expr_loc = pyro.param('per_copy_expr_loc', 
                                   lambda: torch.exp(torch.randn(num_of_genes)))
