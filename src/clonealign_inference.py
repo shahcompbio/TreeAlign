@@ -1,5 +1,6 @@
 import torch
 import pandas as pd
+import numpy as np
 from torch.nn import Softplus
 
 import pyro
@@ -22,7 +23,7 @@ def inverse_softplus(x):
 
 
 @config_enumerate
-def clonealign_pyro_gene_model(cnv, expr):
+def clonealign_pyro_gene_model(cnv, expr, temperature):
     num_of_clones = len(cnv)
     num_of_cells = len(expr)
     num_of_genes = len(expr[0])
@@ -30,7 +31,7 @@ def clonealign_pyro_gene_model(cnv, expr):
     softplus = Softplus()
 
     # initialize per_copy_expr using the data (This typically speeds up convergence)
-    expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+    expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
     per_copy_expr_guess = torch.mean(expr, 0)
 
     # draw chi from gamma
@@ -52,7 +53,9 @@ def clonealign_pyro_gene_model(cnv, expr):
 
         # sample the gene_type_score from uniform distribution.
         # the score reflects how much the copy number influence expression.
-        gene_type_score = pyro.sample('gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
+        gene_type_score = pyro.sample('gene_type_score', dist.Dirichlet(torch.ones(2)))
+        gene_type = pyro.sample('gene_type',
+                                dist.RelaxedOneHotCategorical(temperature=torch.tensor([0.5]), probs=gene_type_score))
 
     with pyro.plate('cell', num_of_cells):
         # draw clone_assign_prob from Dir
@@ -64,12 +67,12 @@ def clonealign_pyro_gene_model(cnv, expr):
         psi = pyro.sample('psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
 
         # construct expected_expr
-        expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type_score[:, 0] +
-                         mean_expr * gene_type_score[:, 1]) * \
+        expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type[:, 0] +
+                         mean_expr * gene_type[:, 1]) * \
                         torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 @config_enumerate
@@ -81,7 +84,7 @@ def clonealign_pyro_model(cnv, expr):
     softplus = Softplus()
 
     # initialize per_copy_expr using the data (This typically speeds up convergence)
-    expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+    expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
     per_copy_expr_guess = torch.mean(expr, 0)
 
     # calculate copy number mean
@@ -113,10 +116,18 @@ def clonealign_pyro_model(cnv, expr):
             torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 def run_clonealign_pyro(cnv, expr, is_gene_type=False):
+    tau0 = 1.0
+    ANNEAL_RATE = 0.003
+    MIN_TEMP = 0.5
+    np_temp = tau0
+    losses = []
+    max_iter = 400
+    rel_tol = 1e-5
+
     optim = pyro.optim.Adam({'lr': 0.1, 'betas': [0.8, 0.99]})
     elbo = TraceEnum_ELBO(max_plate_nesting=1)
 
@@ -124,7 +135,7 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False):
 
     if is_gene_type:
         global_guide = AutoDelta(poutine.block(clonealign_pyro_gene_model,
-                                               expose=['gene_type_score', 'chi', 'per_copy_expr', 'w', 'mean_expr',
+                                               expose=['gene_type_score', "gene_type", 'chi', 'per_copy_expr', 'w', 'mean_expr',
                                                        'clone_assign_prob', 'psi']))
         svi = SVI(clonealign_pyro_gene_model, global_guide, optim, loss=elbo)
     else:
@@ -133,12 +144,15 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False):
         svi = SVI(clonealign_pyro_model, global_guide, optim, loss=elbo)
 
     # start inference
-    losses = []
-    max_iter = 400
-    rel_tol = 1e-5
     print('Start Inference.')
     for i in range(max_iter):
-        loss = svi.step(cnv, expr)
+        if i % 100 == 1:
+            np_temp = np.maximum(tau0 * np.exp(-ANNEAL_RATE * i), MIN_TEMP)
+        if is_gene_type:
+            loss = svi.step(cnv, expr, np_temp)
+        else:
+            loss = svi.step(cnv, expr)
+
 
         if i >= 1:
             loss_diff = abs((losses[-1] - loss) / losses[-1])
