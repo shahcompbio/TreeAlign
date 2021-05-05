@@ -121,11 +121,11 @@ def clonealign_pyro_model(cnv, expr):
 
 def run_clonealign_pyro(cnv, expr, is_gene_type=False):
     tau0 = 1.0
-    ANNEAL_RATE = 0.003
+    ANNEAL_RATE = 0.0006
     MIN_TEMP = 0.5
     np_temp = tau0
     losses = []
-    max_iter = 400
+    max_iter = 1000
     rel_tol = 1e-5
 
     optim = pyro.optim.Adam({'lr': 0.1, 'betas': [0.8, 0.99]})
