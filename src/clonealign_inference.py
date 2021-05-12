@@ -121,7 +121,7 @@ def clonealign_pyro_model(cnv, expr):
 
 def run_clonealign_pyro(cnv, expr, is_gene_type=False):
     tau0 = 1.0
-    ANNEAL_RATE = 0.0007
+    ANNEAL_RATE = 0.001
     MIN_TEMP = 0.5
     np_temp = tau0
     losses = []
