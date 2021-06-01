@@ -22,25 +22,26 @@ def main():
     parser.add_argument('-e', '--expr', nargs=1, help='expr matrix')
     parser.add_argument('-c', '--clone', nargs=1, help='gene * clone cnv matrix')
     parser.add_argument('-a', '--assignment', nargs=1, help='output path for clone assignment')
-    parser.add_argument('-s', '--gene_score', nargs=1, help='output path for gene type scores')
+    parser.add_argument('-s', '--gene_score', nargs=1, default='', help='output path for gene type scores')
+    parser.add_argument('-f', '--fold_change', nargs=1, default='', help='output path for gene fold change')
     parser.add_argument('-r', '--repeat_times', type=int, default=1, help="number of times of repeating the clonealign run")
-    parser.add_argument('-g', "--gene_mode", type=str2bool, nargs='?',
-                        const=True, default=False,
-                        help="Activate gene mode.")
+    parser.add_argument('-g', '--gene_mode', nargs=1, default='default_model', help='which model to use')
     args = parser.parse_args()
 
     expr, cnv, expr_csv, cnv_csv = process_input_matrices(args.expr[0], args.clone[0])
 
     repeat_times = int(args.repeat_times)
     for i in range(repeat_times):
-        clone_assign_prob, gene_type_score = run_clonealign_pyro(cnv, expr, args.gene_mode)
+        print(args.gene_mode)
+        clone_assign_prob, gene_type_score, gene_fold_change = run_clonealign_pyro(cnv, expr, args.gene_mode[0])
         if i == 0:
             print("output the first results!")
-            process_output_matrices(clone_assign_prob, gene_type_score, args.assignment[0], args.gene_score[0], expr_csv, cnv_csv)
+            process_output_matrices(clone_assign_prob, gene_type_score, gene_fold_change, args.assignment[0], args.gene_score[0], args.fold_change[0], expr_csv, cnv_csv)
         else:
             assignment_path = add_suffix(args.assignment[0], i)
             gene_score_path = add_suffix(args.gene_score[0], i)
-            process_output_matrices(clone_assign_prob, gene_type_score, assignment_path, gene_score_path, expr_csv, cnv_csv)
+            fold_change_path = add_suffix(args.fold_change[0], i)
+            process_output_matrices(clone_assign_prob, gene_type_score, gene_fold_change, assignment_path, gene_score_path, fold_change_path, expr_csv, cnv_csv)
 
     print("clonealign pyro is finished!")
 
