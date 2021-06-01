@@ -23,7 +23,7 @@ def inverse_softplus(x):
 
 
 @config_enumerate
-def clonealign_pyro_gene_model(cnv, expr, temperature):
+def clonealign_pyro_gene_model(cnv, expr, temperature=0.5):
     num_of_clones = len(cnv)
     num_of_cells = len(expr)
     num_of_genes = len(expr[0])
@@ -35,36 +35,36 @@ def clonealign_pyro_gene_model(cnv, expr, temperature):
     per_copy_expr_guess = torch.mean(expr, 0)
 
     # draw chi from gamma
-    chi = pyro.sample('chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
+    chi = pyro.sample('expose_chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
 
     with pyro.plate('gene', num_of_genes):
         # draw per_copy_expr from softplus-transformed Normal distribution
-        per_copy_expr = pyro.sample('per_copy_expr',
+        per_copy_expr = pyro.sample('expose_per_copy_expr',
                                     dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
         per_copy_expr = softplus(per_copy_expr)
 
         # draw mean_expr from another softplus-transformed Normal distribution
-        mean_expr = pyro.sample('mean_expr',
+        mean_expr = pyro.sample('expose_mean_expr',
                                 dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
         mean_expr = softplus(mean_expr)
 
         # draw w from Normal
-        w = pyro.sample('w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
+        w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
 
         # sample the gene_type_score from uniform distribution.
         # the score reflects how much the copy number influence expression.
-        gene_type_score = pyro.sample('gene_type_score', dist.Dirichlet(torch.ones(2)))
-        gene_type = pyro.sample('gene_type',
-                                dist.RelaxedOneHotCategorical(temperature=torch.tensor([0.5]), probs=gene_type_score))
+        gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2)))
+        gene_type = pyro.sample('expose_gene_type',
+                                dist.RelaxedOneHotCategorical(temperature=torch.tensor(0.5), probs=gene_type_score))
 
     with pyro.plate('cell', num_of_cells):
         # draw clone_assign_prob from Dir
-        clone_assign_prob = pyro.sample('clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
+        clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
         # draw clone_assign from Cat
         clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
         # draw psi from Normal
-        psi = pyro.sample('psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
+        psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
 
         # construct expected_expr
         expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type[:, 0] +
@@ -76,7 +76,54 @@ def clonealign_pyro_gene_model(cnv, expr, temperature):
 
 
 @config_enumerate
-def clonealign_pyro_model(cnv, expr):
+def clonealign_pyro_fc_model(cnv, expr, temperature=0.5):
+    num_of_clones = len(cnv)
+    num_of_cells = len(expr)
+    num_of_genes = len(expr[0])
+
+    softplus = Softplus()
+
+    # initialize per_copy_expr using the data (This typically speeds up convergence)
+    expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+    per_copy_expr_guess = torch.mean(expr, 0)
+
+    cnv_min = torch.min(cnv, 0)[0]
+    cnv_rel = cnv / cnv_min
+
+    # draw chi from gamma
+    chi = pyro.sample('expose_chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
+
+    with pyro.plate('gene', num_of_genes):
+        # draw per_copy_expr from softplus-transformed Normal distribution
+        per_copy_expr = pyro.sample('expose_per_copy_expr',
+                                    dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+        per_copy_expr = softplus(per_copy_expr)
+
+        # draw w from Normal
+        w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
+        # draw gene fold change
+        gene_fold_change = pyro.sample('expose_gene_fold_change', dist.Uniform(low = 0, high = 10))
+
+
+    with pyro.plate('cell', num_of_cells):
+        # draw clone_assign_prob from Dir
+        clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
+        # draw clone_assign from Cat
+        clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
+
+        # draw psi from Normal
+        psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
+
+        # construct expected_expr
+        expected_expr = (per_copy_expr * torch.pow(Vindex(cnv_rel)[clone_assign], gene_fold_change) * cnv_min) * torch.exp(
+            torch.matmul(psi, torch.transpose(w, 0, 1)))
+
+        # draw expr from Multinomial
+        pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
+
+
+@config_enumerate
+def clonealign_pyro_model(cnv, expr, temperature=0.5):
     num_of_clones = len(cnv)
     num_of_cells = len(expr)
     num_of_genes = len(expr[0])
@@ -91,25 +138,25 @@ def clonealign_pyro_model(cnv, expr):
     copy_number_mean = torch.mean(cnv, 0)
 
     # draw chi from gamma
-    chi = pyro.sample('chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
+    chi = pyro.sample('expose_chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
 
     with pyro.plate('gene', num_of_genes):
         # draw per_copy_expr from softplus-transformed Normal distribution
-        per_copy_expr = pyro.sample('per_copy_expr',
+        per_copy_expr = pyro.sample('expose_per_copy_expr',
                                     dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
         per_copy_expr = softplus(per_copy_expr)
 
         # draw w from Normal
-        w = pyro.sample('w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
+        w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
 
     with pyro.plate('cell', num_of_cells):
         # draw clone_assign_prob from Dir
-        clone_assign_prob = pyro.sample('clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
+        clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
         # draw clone_assign from Cat
         clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
         # draw psi from Normal
-        psi = pyro.sample('psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
+        psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
 
         # construct expected_expr
         expected_expr = per_copy_expr * Vindex(cnv)[clone_assign] * torch.exp(
@@ -119,7 +166,7 @@ def clonealign_pyro_model(cnv, expr):
         pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
 
 
-def run_clonealign_pyro(cnv, expr, is_gene_type=False):
+def run_clonealign_pyro(cnv, expr, model_select=""):
     tau0 = 1.0
     ANNEAL_RATE = 0.001
     MIN_TEMP = 0.5
@@ -131,28 +178,27 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False):
     optim = pyro.optim.Adam({'lr': 0.1, 'betas': [0.8, 0.99]})
     elbo = TraceEnum_ELBO(max_plate_nesting=1)
 
+    if model_select == "gene":
+        model = clonealign_pyro_gene_model
+    elif model_select == "fc":
+        model = clonealign_pyro_fc_model
+    else:
+        model = clonealign_pyro_model
+
     pyro.clear_param_store()
 
-    if is_gene_type:
-        global_guide = AutoDelta(poutine.block(clonealign_pyro_gene_model,
-                                               expose=['gene_type_score', "gene_type", 'chi', 'per_copy_expr', 'w', 'mean_expr',
-                                                       'clone_assign_prob', 'psi']))
-        svi = SVI(clonealign_pyro_gene_model, global_guide, optim, loss=elbo)
-    else:
-        global_guide = AutoDelta(poutine.block(clonealign_pyro_model,
-                                               expose=['chi', 'per_copy_expr', 'w', 'clone_assign_prob', 'psi']))
-        svi = SVI(clonealign_pyro_model, global_guide, optim, loss=elbo)
+    global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")))
+
+
+    svi = SVI(model, global_guide, optim, loss=elbo)
+
 
     # start inference
     print('Start Inference.')
     for i in range(max_iter):
         if i % 100 == 1:
             np_temp = np.maximum(tau0 * np.exp(-ANNEAL_RATE * i), MIN_TEMP)
-        if is_gene_type:
-            loss = svi.step(cnv, expr, np_temp)
-        else:
-            loss = svi.step(cnv, expr)
-
+        loss = svi.step(cnv, expr, np_temp)
 
         if i >= 1:
             loss_diff = abs((losses[-1] - loss) / losses[-1])
@@ -161,19 +207,21 @@ def run_clonealign_pyro(cnv, expr, is_gene_type=False):
                 break
 
         losses.append(loss)
-
         print('.' if i % 200 else '\n', end='')
 
     map_estimates = global_guide(cnv, expr)
 
-    clone_assign_prob = map_estimates['clone_assign_prob']
+    clone_assign_prob = map_estimates['expose_clone_assign_prob']
+    gene_type_score_df = None
+    gene_fold_change_df = None
 
-    if is_gene_type:
-        gene_type_score = map_estimates['gene_type_score']
+    if model_select == "gene":
+        gene_type_score = map_estimates['expose_gene_type_score']
+        gene_type_score_df = pd.DataFrame(gene_type_score.data.numpy())
+    elif model_select == "fc":
+        gene_fold_change = map_estimates['expose_gene_fold_change']
+        gene_fold_change_df = pd.DataFrame(gene_fold_change.data.numpy())
 
     clone_assign_prob_df = pd.DataFrame(clone_assign_prob.data.numpy())
-    if is_gene_type:
-        gene_type_score_df = pd.DataFrame(gene_type_score.data.numpy())
-    else:
-        gene_type_score_df = None
-    return clone_assign_prob_df, gene_type_score_df
+
+    return clone_assign_prob_df, gene_type_score_df, gene_fold_change_df
