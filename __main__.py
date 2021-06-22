@@ -26,9 +26,10 @@ def main():
     parser.add_argument('-f', '--fold_change', nargs=1, default='place_holder', help='output path for gene fold change')
     parser.add_argument('-r', '--repeat_times', type=int, default=1, help="number of times of repeating the clonealign run")
     parser.add_argument('-g', '--gene_mode', nargs=1, default='default_model', help='which model to use')
+    parser.add_argument('-n', '--normalize_cnv', nargs=1, default='f', help='normalize cnv matrix or not')
     args = parser.parse_args()
     
-    expr, cnv, expr_csv, cnv_csv = process_input_matrices(args.expr[0], args.clone[0])
+    expr, cnv, expr_csv, cnv_csv = process_input_matrices(args.expr[0], args.clone[0], normalize_cnv=args.normalize_cnv[0])
 
     repeat_times = int(args.repeat_times)
     for i in range(repeat_times):

@@ -2,7 +2,7 @@ import torch
 import pandas as pd
 
 
-def process_input_matrices(expr_path, cnv_path, cnv_cutoff=6):
+def process_input_matrices(expr_path, cnv_path, normalize_cnv='f', cnv_cutoff=6):
     expr_csv = pd.read_csv(expr_path, header=0, index_col=0)
     cnv_csv = pd.read_csv(cnv_path, header=0, index_col=0)
 
@@ -14,6 +14,9 @@ def process_input_matrices(expr_path, cnv_path, cnv_cutoff=6):
     
     expr_csv = expr_csv.loc[intersect_index,]
     cnv_csv = cnv_csv.loc[intersect_index ]
+    
+    if normalize_cnv == 't':
+        cnv_csv.div(cnv_csv.min(axis=1), axis=0)    
 
     cnv = torch.tensor(cnv_csv.values, dtype=torch.float)
     cnv = torch.transpose(cnv, 0, 1)
