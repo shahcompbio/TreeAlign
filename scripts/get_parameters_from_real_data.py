@@ -25,7 +25,7 @@ def clonealign_pyro(cnv, expr):
     softplus = Softplus()
 
     # initialize per_copy_expr using the data (This typically speeds up convergence)
-    expr = expr * 2000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+    expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
     per_copy_expr_guess = torch.mean(expr, 0)
 
     # draw chi from gamma
@@ -64,7 +64,7 @@ def clonealign_pyro(cnv, expr):
                         torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
         # draw expr from Multinomial
-        pyro.sample('obs', dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False), obs=expr)
+        pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
 
 
 def get_parameters(expr, cnv):
@@ -107,7 +107,22 @@ def get_parameters(expr, cnv):
     psi = map_estimates['psi']
     w = map_estimates['w']
 
-    return cnv, expr, per_copy_expr, mean_expr, psi, w
+    return per_copy_expr, mean_expr, psi, w
+
+
+def cnv_simulation(clone_count=2, gene_count=500, gene_states=None):
+    if gene_states is None:
+        gene_states = [[1., 2.], [2., 3.], [2., 4.], [3., 4.], [3., 6.]]
+    if clone_count != len(gene_states[0]):
+        raise ValueError("Generate simulated cnv failed due to clone_count mismatch.")
+    else:
+        per_state_gene_count = int(gene_count / len(gene_states))
+        all_gene_states = []
+        for gene_state in gene_states:
+            all_gene_states = all_gene_states + ([gene_state] * per_state_gene_count)
+        cnv = torch.tensor(all_gene_states, dtype=torch.float)
+        cnv = torch.transpose(cnv, 0, 1)
+        return cnv
 
 
 def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq, cell_count, gene_count):
@@ -115,15 +130,12 @@ def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq,
     random_cells = random.sample(range(len(expr)), cell_count)
     random_genes = random.sample(range(len(expr[0])), gene_count)
 
-
-    cnv = cnv[:, random_genes]
     expr = expr[random_cells, :]
     expr = expr[:, random_genes]
     per_copy_expr = per_copy_expr[random_genes]
 
     w = w[random_genes, :]
     psi = psi[random_cells, :]
-
 
     num_of_clones = len(cnv)
     num_of_cells = len(expr)
