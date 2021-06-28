@@ -49,7 +49,7 @@ def main():
 
                 expr_simulated_dataframe = pd.DataFrame(expr_simulated.data.numpy())
                 cnv_simulated_dataframe = pd.DataFrame(cnv_simulated.data.numpy())
-                gene_type_score_simuated_dataframe = pd.DataFrame(gene_type_score_simulated.data.numpy())
+                gene_type_score_simulated_dataframe = pd.DataFrame(gene_type_score_simulated.data.numpy())
                 clone_assign_simulated_dataframe = pd.DataFrame(clone_assign_simulated.data.numpy())
 
                 # rename
@@ -60,7 +60,7 @@ def main():
                 expr_simulated_dataframe.rename(columns=cell_name, inplace=True)
                 cnv_simulated_dataframe.rename(index=gene_name, inplace=True)
 
-                gene_type_score_simuated_dataframe.rename(index=gene_name, inplace=True)
+                gene_type_score_simulated_dataframe.rename(index=gene_name, inplace=True)
                 clone_assign_simulated_dataframe.rename(index=cell_name, inplace=True)
 
                 output_string = str(gene_type_freq) + "_"  + str(cell_count) + "_" + str(gene_count)
@@ -69,7 +69,7 @@ def main():
                     os.makedirs(output_dir)
                 expr_simulated_dataframe.to_csv(output_dir + "/expr_simulated_" + output_string + ".csv")
                 cnv_simulated_dataframe.to_csv(output_dir + "/cnv_simulated_" + output_string + ".csv")
-                gene_type_score_simuated_dataframe.to_csv(output_dir + "/gene_type_score_simulated_" + output_string + ".csv")
+                gene_type_score_simulated_dataframe.to_csv(output_dir + "/gene_type_score_simulated_" + output_string + ".csv")
                 clone_assign_simulated_dataframe.to_csv(output_dir + "/clone_assign_simulated_" + output_string + ".csv")
 
     print("simulation finished")

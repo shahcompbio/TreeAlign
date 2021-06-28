@@ -121,6 +121,8 @@ def cnv_simulation(clone_count=2, gene_count=500, gene_states=None):
         for gene_state in gene_states:
             all_gene_states = all_gene_states + ([gene_state] * per_state_gene_count)
         cnv = torch.tensor(all_gene_states, dtype=torch.float)
+        cnv_min = torch.min(cnv, 1).values
+        cnv = cnv / torch.reshape(cnv_min, (-1, 1))
         cnv = torch.transpose(cnv, 0, 1)
         return cnv
 
@@ -172,6 +174,6 @@ def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq,
 
         # draw expr from Multinomial
         expr_simulated = pyro.sample('obs',
-                                     dist.Multinomial(total_count=2000, probs=expected_expr, validate_args=False))
+                                     dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False))
 
     return expr_simulated, gene_type_score, clone_assign, random_cells, random_genes
