@@ -134,6 +134,7 @@ def clonealign_pyro_simulation(cnv, expr, per_copy_expr, psi, w, gene_type_freq,
 
     expr = expr[random_cells, :]
     expr = expr[:, random_genes]
+    cnv = cnv[:, random_genes]
     per_copy_expr = per_copy_expr[random_genes]
 
     w = w[random_genes, :]

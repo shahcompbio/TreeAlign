@@ -36,8 +36,8 @@ def main():
     for gene_type_freq in gene_type_freqs:
         for cell_count in cell_counts:
             for gene_count in gene_counts:
-                cnv_simulated = cnv_simulation(clone_count, int(gene_count))
-                expr_simulated, gene_type_score_simulated, clone_assign_simulated, random_cells, random_genes = clonealign_pyro_simulation(cnv_simulated, expr,
+                #cnv_simulated = cnv_simulation(clone_count, int(gene_count))
+                expr_simulated, gene_type_score_simulated, clone_assign_simulated, random_cells, random_genes = clonealign_pyro_simulation(cnv, expr,
                                                                                                                per_copy_expr,
                                                                                                                psi, w,
                                                                                                                int(gene_type_freq),
@@ -45,10 +45,10 @@ def main():
                                                                                                                int(gene_count))
 
                 expr_simulated = torch.transpose(expr_simulated, 0, 1)
-                cnv_simulated = torch.transpose(cnv_simulated, 0, 1)
+                #cnv_simulated = torch.transpose(cnv_simulated, 0, 1)
 
                 expr_simulated_dataframe = pd.DataFrame(expr_simulated.data.numpy())
-                cnv_simulated_dataframe = pd.DataFrame(cnv_simulated.data.numpy())
+                #cnv_simulated_dataframe = pd.DataFrame(cnv_simulated.data.numpy())
                 gene_type_score_simulated_dataframe = pd.DataFrame(gene_type_score_simulated.data.numpy())
                 clone_assign_simulated_dataframe = pd.DataFrame(clone_assign_simulated.data.numpy())
 
@@ -58,7 +58,7 @@ def main():
 
                 expr_simulated_dataframe.rename(index=gene_name, inplace=True)
                 expr_simulated_dataframe.rename(columns=cell_name, inplace=True)
-                cnv_simulated_dataframe.rename(index=gene_name, inplace=True)
+                #cnv_simulated_dataframe.rename(index=gene_name, inplace=True)
 
                 gene_type_score_simulated_dataframe.rename(index=gene_name, inplace=True)
                 clone_assign_simulated_dataframe.rename(index=cell_name, inplace=True)
@@ -68,7 +68,7 @@ def main():
                 if not os.path.exists(output_dir):
                     os.makedirs(output_dir)
                 expr_simulated_dataframe.to_csv(output_dir + "/expr_simulated_" + output_string + ".csv")
-                cnv_simulated_dataframe.to_csv(output_dir + "/cnv_simulated_" + output_string + ".csv")
+                #cnv_simulated_dataframe.to_csv(output_dir + "/cnv_simulated_" + output_string + ".csv")
                 gene_type_score_simulated_dataframe.to_csv(output_dir + "/gene_type_score_simulated_" + output_string + ".csv")
                 clone_assign_simulated_dataframe.to_csv(output_dir + "/clone_assign_simulated_" + output_string + ".csv")
 

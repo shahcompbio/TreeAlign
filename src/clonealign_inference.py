@@ -53,7 +53,7 @@ def clonealign_pyro_gene_model(cnv, expr, temperature=0.5):
 
         # sample the gene_type_score from uniform distribution.
         # the score reflects how much the copy number influence expression.
-        gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2)))
+        gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
         gene_type = pyro.sample('expose_gene_type',
                                 dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature), probs=gene_type_score))
 
