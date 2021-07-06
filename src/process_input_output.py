@@ -13,7 +13,7 @@ def process_input_matrices(expr_path, cnv_path, normalize_cnv='f', cnv_cutoff=10
     intersect_index = cnv_csv.index.intersection(expr_csv.index)
     
     expr_csv = expr_csv.loc[intersect_index,]
-    cnv_csv = cnv_csv.loc[intersect_index ]
+    cnv_csv = cnv_csv.loc[intersect_index,]
     
     if normalize_cnv == 't':
         print("Normalize cnv by minCNV. ")
