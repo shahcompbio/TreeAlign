@@ -7,7 +7,6 @@ import pyro
 import pyro.distributions as dist
 from pyro import poutine
 from pyro.infer.autoguide import AutoDelta
-from pyro.infer.autoguide.initialization import init_to_feasible
 from pyro.optim import Adam
 from pyro.infer import SVI, TraceEnum_ELBO, config_enumerate
 from pyro.ops.indexing import Vindex
