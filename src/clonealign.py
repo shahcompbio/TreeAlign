@@ -1,5 +1,5 @@
 """
-Abstract clonealign class: initialize and clean expr, cnv data frame
+CloneAlign base class: initialize and clean expr, cnv data frame
 """
 
 import torch
