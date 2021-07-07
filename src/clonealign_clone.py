@@ -36,6 +36,14 @@ class CloneAlignClone(CloneAlign):
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
 
+        self.clone_assign_df = None
+        self.gene_type_score_df = None
+
+    def generate_output(self):
+        summarized_clone_assign_df, summarized_gene_type_score_df = CloneAlign.generate_output(self)
+        return summarized_clone_assign_df, summarized_gene_type_score_df, self.clone_assign_df, self.gene_type_score_df
+
+
     def assign_cells_to_clones(self):
         '''
         assign cells from scRNA to clones identified in scDNA
@@ -58,7 +66,7 @@ class CloneAlignClone(CloneAlign):
         expr_input = expr_input.loc[intersect_index,]
         clone_cnv_df = clone_cnv_df.loc[intersect_index,]
 
-        none_freq, clone_assign, gene_type_score = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
+        none_freq, clone_assign, gene_type_score, clone_assign_df, gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
 
         # record clone_assign
         for i in range(expr_input.shape[1]):

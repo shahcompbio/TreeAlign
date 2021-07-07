@@ -317,4 +317,4 @@ class CloneAlign():
         # calculate NaN freq
         none_freq = clone_assign_max.isna().sum() / clone_assign_max.shape[0]
 
-        return none_freq, clone_assign_max, gene_type_score_mean
+        return none_freq, clone_assign_max, gene_type_score_mean, clone_assign, gene_type_score

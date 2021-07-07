@@ -167,7 +167,7 @@ class CloneAlignTree(CloneAlign):
         print("Start run clonealign for clade: " + current_clade.name)
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
-        none_freq, clone_assign, gene_type_score = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
+        none_freq, clone_assign, gene_type_score, clone_assign_df, gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
 
         print("Clonealign finished!")
 
