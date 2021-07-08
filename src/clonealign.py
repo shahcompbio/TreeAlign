@@ -63,9 +63,9 @@ class CloneAlign():
         :return: clonealign output (pandas.DataFrame)
         '''
         clone_assign_df = pd.DataFrame.from_dict(self.clone_assign_dict.items())
-        clone_assign_df.rename(columns={0: "cell_id", 1: "clone_id"})
+        clone_assign_df.rename(columns={0: "cell_id", 1: "clone_id"}, inplace=True)
         gene_type_score_df = pd.DataFrame.from_dict(self.gene_type_score_dict.items())
-        gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"})
+        gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"}, inplace=True)
 
         return clone_assign_df, gene_type_score_df
 
@@ -300,7 +300,7 @@ class CloneAlign():
             current_clone_assign_prob = current_clone_assign.max(1)
             current_clone_assign_discrete = current_clone_assign.idxmax(1)
 
-            current_clone_assign_discrete[current_clone_assign_prob < self.min_clone_assign_prob] = None
+            current_clone_assign_discrete[current_clone_assign_prob < self.min_clone_assign_prob] = np.nan
             clone_assign_list.append(current_clone_assign_discrete)
 
             gene_type_score_list.append(gene_type_score.iloc[:, 0])
@@ -312,7 +312,7 @@ class CloneAlign():
         clone_assign_max = clone_assign.mode(1, dropna=False)[0]
         clone_assign_freq = clone_assign.apply(max_count, axis=1) / self.repeat
 
-        clone_assign_max[clone_assign_freq < self.min_clone_assign_freq] = None
+        clone_assign_max[clone_assign_freq < self.min_clone_assign_freq] = np.nan
 
         # calculate NaN freq
         none_freq = clone_assign_max.isna().sum() / clone_assign_max.shape[0]

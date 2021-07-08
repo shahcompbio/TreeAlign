@@ -66,12 +66,20 @@ class CloneAlignClone(CloneAlign):
         expr_input = expr_input.loc[intersect_index,]
         clone_cnv_df = clone_cnv_df.loc[intersect_index,]
 
-        none_freq, clone_assign, gene_type_score, clone_assign_df, gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
+        none_freq, clone_assign, gene_type_score, self.clone_assign_df, self.gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
+
+        clones_dict = dict()
+        for i in range(len(clones)):
+            clones_dict[float(i)] = clones[i]
+
+        self.clone_assign_df.replace(clones_dict, inplace=True)
+        self.clone_assign_df.index = expr_input.columns.values
+        self.gene_type_score_df.index = expr_input.index.values
 
         # record clone_assign
         for i in range(expr_input.shape[1]):
             if np.isnan(clone_assign.values[i]):
-                self.clone_assign_dict[expr_input.columns.values[i]] = None
+                self.clone_assign_dict[expr_input.columns.values[i]] = np.nan
             else:
                 self.clone_assign_dict[expr_input.columns.values[i]] = clones[int(clone_assign.values[i])]
 
