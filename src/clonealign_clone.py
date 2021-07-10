@@ -10,6 +10,7 @@ from .clonealign import CloneAlign
 class CloneAlignClone(CloneAlign):
 
     def __init__(self, expr, cnv, clone, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=10,
+                 min_clone_cell_count=20,
                  min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5):
         '''
@@ -35,6 +36,14 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
+
+        clone_cell_counts = self.clone_df['clone_id'].value_counts()
+        print(clone_cell_counts)
+        cells_to_remove = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
+        print(cells_to_remove)
+        self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_remove)]
+
+        print(self.clone_df)
 
         self.clone_assign_df = None
         self.gene_type_score_df = None
