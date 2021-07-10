@@ -141,12 +141,27 @@ class CloneAlign():
             # draw per_copy_expr from softplus-transformed Normal distribution
             per_copy_expr = pyro.sample('expose_per_copy_expr',
                                         dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+
+            assert not np.isinf(per_copy_expr.data.numpy().sum())
+            assert not np.isnan(per_copy_expr.data.numpy().sum())
+
             per_copy_expr = softplus(per_copy_expr)
+
+            assert not np.isinf(per_copy_expr.data.numpy().sum())
+            assert not np.isnan(per_copy_expr.data.numpy().sum())
+
 
             # draw mean_expr from another softplus-transformed Normal distribution
             mean_expr = pyro.sample('expose_mean_expr',
                                     dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+
+            assert not np.isinf(mean_expr.data.numpy().sum())
+            assert not np.isnan(mean_expr.data.numpy().sum())
+
             mean_expr = softplus(mean_expr)
+
+            assert not np.isinf(mean_expr.data.numpy().sum())
+            assert not np.isnan(mean_expr.data.numpy().sum())
 
             # draw w from Normal
             w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
@@ -154,9 +169,20 @@ class CloneAlign():
             # sample the gene_type_score from uniform distribution.
             # the score reflects how much the copy number influence expression.
             gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
+            #gene_type_score = gene_type_score.clamp(min=1e-10)
+
+            if np.isnan(gene_type_score.data.numpy().sum()):
+                print(gene_type_score.dtype)
+                pd.DataFrame(gene_type_score.data.numpy()).to_csv("test.csv")
+            assert not np.isinf(gene_type_score.data.numpy().sum())
+            assert not np.isnan(gene_type_score.data.numpy().sum())
+
             gene_type = pyro.sample('expose_gene_type',
                                     dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
                                                                   probs=gene_type_score))
+            #gene_type = gene_type.clamp(min=1e-10)
+            assert not np.isinf(gene_type.data.numpy().sum())
+            assert not np.isnan(gene_type.data.numpy().sum())
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
@@ -164,13 +190,22 @@ class CloneAlign():
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
+            assert not np.isinf(clone_assign.data.numpy().sum())
+            assert not np.isnan(clone_assign.data.numpy().sum())
+
             # draw psi from Normal
             psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
+
+            assert not np.isinf(psi.data.numpy().sum())
+            assert not np.isnan(psi.data.numpy().sum())
 
             # construct expected_expr
             expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type[:, 0] +
                              mean_expr * gene_type[:, 1]) * \
                             torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
+
+            assert not np.isinf(expected_expr.data.numpy().sum())
+            assert not np.isnan(expected_expr.data.numpy().sum())
 
             # draw expr from Multinomial
             pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
@@ -285,10 +320,11 @@ class CloneAlign():
         :param expr_df: gene expression count matrix. row is gene. column is cell. (pandas.DataFrame)
         :return: frequency of unassigned cells, clone assignment, gene_type_score
         '''
-        cnv = torch.tensor(cnv_df.values, dtype=torch.float)
+        torch.set_default_dtype(torch.float64)
+        cnv = torch.tensor(cnv_df.values, dtype=torch.float64)
         cnv = torch.transpose(cnv, 0, 1)
 
-        expr = torch.tensor(expr_df.values, dtype=torch.float)
+        expr = torch.tensor(expr_df.values, dtype=torch.float64)
         expr = torch.transpose(expr, 0, 1)
 
         clone_assign_list = []

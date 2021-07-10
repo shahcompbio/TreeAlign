@@ -4,11 +4,11 @@ from src.clonealign_tree import CloneAlignTree
 import pandas as pd
 from Bio import Phylo
 
-expr = pd.read_csv("/Users/shih/pyro_tutorial/clonealign_pyro/data/SPECTRUM-OV-022_expr_clonealign_input.csv", index_col=0)
-cnv = pd.read_csv("/Users/shih/pyro_tutorial/clonealign_pyro/SPECTRUM-OV-022_gene_cnv.csv", index_col=0)
-clone = pd.read_csv("/Users/shih/pyro_tutorial/clonealign_pyro/SPECTRUM-OV-022_cell_clones.csv")
+expr = pd.read_csv("/Users/shih/pyro_tutorial/clonealign_pyro/data/SPECTRUM-OV-009_expr.csv", index_col=0)
+cnv = pd.read_csv("/Users/shih/pyro_tutorial/clonealign_pyro/data/SPECTRUM-OV-009_gene_cnv.csv", index_col=0)
+clone = pd.read_csv("/Users/shih/pyro_tutorial/clonealign_pyro/data/SPECTRUM-OV-009_cnv_meta.csv")
 
-tree = Phylo.read("/Users/shih/pyro_tutorial/clonealign_pyro/tree0.newick", "newick")
+tree = Phylo.read("/Users/shih/pyro_tutorial/clonealign_pyro/data/SPECTRUM-OV-009_tree.newick", "newick")
 
 #clonealignclone_obj = CloneAlignClone(expr, cnv, clone, repeat=1)
 #clonealignclone_obj.assign_cells_to_clones()
