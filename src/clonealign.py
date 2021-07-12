@@ -53,7 +53,7 @@ class CloneAlign():
         self.cnv_df[self.cnv_df > self.cnv_cutoff] = self.cnv_cutoff
 
         if self.normalize_cnv:
-            self.cnv_df.div(self.cnv_df.min(axis=1), axis=0)
+            self.cnv_df = self.cnv_df.div(self.cnv_df.min(axis=1), axis=0)
 
         return
 
