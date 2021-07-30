@@ -4,7 +4,7 @@ CloneAlignVis class
 from Bio import Phylo
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
-import json
+import simplejson as json
 
 
 class CloneAlignVis:
@@ -77,7 +77,7 @@ class CloneAlignVis:
         # bin float expr to discrete
         self.bin_expr_matrix()
 
-    def output_json(self, json_path):
+    def output_json(self):
         output = dict()
         if self.tree is not None:
             root = self.tree.clade
@@ -108,11 +108,19 @@ class CloneAlignVis:
 
         if self.cnv_matrix is not None:
             output['cnv_matrix'] = self.convert_cell_gene_matrix_to_list(self.cnv_matrix)
+        return output
 
-        output_json = json.dumps(output, sort_keys=False, separators=(',', ':'))
-        with open(json_path, 'w') as f:
+    @staticmethod
+    def pack_into_tab_data(output_json_file, data, tab_titles=None, tab_contents=None):
+        output = []
+        for i in range(len(data)):
+            tab_data = {'id': str(i), 'tabTitle': tab_titles[i], 'tabContent': tab_contents[i], 'data': data}
+            output.append(tab_data)
+        with open(output_json_file, 'w') as f:
+            output_json = json.dumps(output, separators=(',', ':'), sort_keys=False, ignore_nan=True)
             f.write(output_json)
         return
+
 
     def bin_expr_matrix(self, n_bins=15):
         expr_array = self.expr_matrix.values.flatten()
