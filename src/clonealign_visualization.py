@@ -3,6 +3,7 @@ CloneAlignVis class
 """
 from Bio import Phylo
 import pandas as pd
+import numpy as np
 from pandas.api.types import is_numeric_dtype
 import simplejson as json
 
@@ -15,7 +16,7 @@ class CloneAlignVis:
 
     def __init__(self, genes, tree, cnv_matrix=None, expr_matrix=None,
                  clone_assign_clone=None, clone_assign_tree=None, expr_meta=None, cnv_meta=None,
-                 total_gene_count=2000):
+                 total_gene_count=2000, generate_sankey=True):
         self.genes = genes
 
         self.tree = tree
@@ -43,6 +44,12 @@ class CloneAlignVis:
             # get clean clone assign tree results
             self.clone_assign_tree, self.pie_chart = self.clean_tree_based_clonealign_output(self.tree,
                                                                                              self.clone_assign_tree)
+            # get terminal nodes
+            self.terminal_nodes = []
+            for entry in self.pie_chart:
+                if len(entry["value"]) == 1:
+                    self.terminal_nodes.append(entry["name"])
+
             # get cnv cell assignments
             self.cnv_clone_assign = self.get_cnv_cell_assignments()
         else:
@@ -58,8 +65,15 @@ class CloneAlignVis:
         # else order cnv cells by clone_id
         self.expr_meta = self.merge_meta(self.expr_cells, 'inner', self.expr_meta, self.clone_assign_tree,
                                          self.clone_assign_clone)
+
+        # replace nan with empty string
+        self.cnv_meta = self.cnv_meta.replace(np.nan, "", regex=True)
+        self.expr_meta = self.expr_meta.replace(np.nan, "", regex=True)
+
         # re-order cells by EXPR_CELL_ORDER
-        self.order_expr_cells()
+        self.order_expr_cells(generate_sankey)
+        if generate_sankey:
+            self.generate_sankey()
         self.expr_cells = pd.DataFrame({'cell_id': self.expr_meta['cell_id'].values.tolist()})
 
         # get consensus genes
@@ -108,13 +122,19 @@ class CloneAlignVis:
 
         if self.cnv_matrix is not None:
             output['cnv_matrix'] = self.convert_cell_gene_matrix_to_list(self.cnv_matrix)
+
+        if self.sankey is not None:
+            output['sankey'] = self.sankey
+
+        if self.terminal_nodes is not None:
+            output['terminal_nodes'] = self.terminal_nodes
         return output
 
     @staticmethod
     def pack_into_tab_data(output_json_file, data, tab_titles=None, tab_contents=None):
         output = []
         for i in range(len(data)):
-            tab_data = {'id': str(i), 'tabTitle': tab_titles[i], 'tabContent': tab_contents[i], 'data': data}
+            tab_data = {'id': str(i), 'tabTitle': tab_titles[i], 'tabContent': tab_contents[i], 'data': data[i]}
             output.append(tab_data)
         with open(output_json_file, 'w') as f:
             output_json = json.dumps(output, separators=(',', ':'), sort_keys=False, ignore_nan=True)
@@ -179,11 +199,43 @@ class CloneAlignVis:
         output = output.sort_values(by=['chr', 'start'], key=self.order_chromosome)
         return output
 
-    def order_expr_cells(self):
+    def order_expr_cells(self, generateSankey=True):
         order_columns = [order_column for order_column in self.EXPR_CELL_ORDER if
                          order_column in self.expr_meta.columns.values]
+        # if the first column is also present in self.cnv_meta, match up with self.cnv_meta
+        categories = [i for i in self.cnv_meta[order_columns[0]].unique().tolist() if i is not None]
+        if generateSankey and order_columns[0] in self.cnv_meta.columns.values:
+            self.cnv_meta[order_columns[0]] = pd.Categorical(self.cnv_meta[order_columns[0]], categories, ordered=True)
+            self.expr_meta[order_columns[0]] = pd.Categorical(self.expr_meta[order_columns[0]], categories, ordered=True)
         self.expr_meta = self.expr_meta.sort_values(by=order_columns)
         return
+
+    def generate_sankey(self):
+        order_columns = [order_column for order_column in self.EXPR_CELL_ORDER if
+                         order_column in self.expr_meta.columns.values]
+        categories = self.cnv_meta[order_columns[0]].unique().tolist()
+
+        self.sankey = []
+        cnv_counts = self.cnv_meta[order_columns[0]].value_counts()
+        expr_counts = self.expr_meta[order_columns[0]].value_counts()
+        cnv_sum = 0
+        expr_sum = 0
+        for category in categories:
+            sankey_element = {}
+            sankey_element["name"] = category
+            if category in cnv_counts:
+                sankey_element["left"] = [cnv_sum, cnv_sum + cnv_counts[category].item()]
+                cnv_sum = cnv_sum + cnv_counts[category].item()
+            else:
+                sankey_element["left"] = [cnv_sum, cnv_sum]
+
+            if category in expr_counts:
+                sankey_element["right"] = [expr_sum, expr_sum + expr_counts[category].item()]
+                expr_sum = expr_sum + expr_counts[category].item()
+            else:
+                sankey_element["right"] = [expr_sum, expr_sum]
+            self.sankey.append(sankey_element)
+
 
     def get_cnv_cell_assignments(self):
         clone_assign = self.clone_assign_tree
