@@ -41,6 +41,10 @@ class CloneAlignTree(CloneAlign):
                             min_clone_assign_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
 
         self.tree = tree
+        self.tree.ladderize()
+        self.count = 0
+        # add name for nodes if the nodes don't have name
+        self.add_tree_node_name(tree.clade)
 
         self.min_cell_count_expr = min_cell_count_expr
         self.min_cell_count_cnv = min_cell_count_cnv
@@ -50,6 +54,15 @@ class CloneAlignTree(CloneAlign):
 
         # output
         self.pruned_clades = set()
+
+    def add_tree_node_name(self, node):
+        if node.is_terminal():
+            return
+        if node.name is None:
+            node.name = "node_" + str(self.count)
+        for child in node.clades:
+            self.add_tree_node_name(child)
+        return
 
     def record_clone_assign_to_dict(self, expr_cells, clone_assign, clean_clades):
         '''
@@ -167,7 +180,8 @@ class CloneAlignTree(CloneAlign):
         print("Start run clonealign for clade: " + current_clade.name)
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
-        none_freq, clone_assign, gene_type_score, clone_assign_df, gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
+        none_freq, clone_assign, gene_type_score, clone_assign_df, gene_type_score_df = self.run_clonealign_pyro_repeat(
+            clone_cnv_df, expr_input)
 
         print("Clonealign finished!")
 

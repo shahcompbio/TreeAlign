@@ -22,6 +22,9 @@ class CloneAlignVis:
 
         self.tree = tree
         self.tree.ladderize()
+        self.count = 0
+        # add name for nodes if the nodes don't have name
+        self.add_tree_node_name(tree.clade)
 
         self.cnv_matrix = cnv_matrix
         self.expr_matrix = expr_matrix
@@ -144,6 +147,15 @@ class CloneAlignVis:
         with open(output_json_file, 'w') as f:
             output_json = json.dumps(output, separators=(',', ':'), sort_keys=False, ignore_nan=True, default=convert)
             f.write(output_json)
+        return
+
+    def add_tree_node_name(self, node):
+        if node.is_terminal():
+            return
+        if node.name is None:
+            node.name = "node_" + str(self.count)
+        for child in node.clades:
+            self.add_tree_node_name(child)
         return
 
     def bin_expr_matrix(self, n_bins=15):
