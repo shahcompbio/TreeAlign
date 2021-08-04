@@ -37,7 +37,7 @@ class CloneAlignClone(CloneAlign):
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
         # only keep cells that have cnv profile
-        self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(self.cnv.columns.values)]
+        self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(self.cnv_df.columns.values)]
 
         clone_cell_counts = self.clone_df['clone_id'].value_counts()
         cells_to_remove = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
