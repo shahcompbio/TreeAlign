@@ -60,6 +60,7 @@ class CloneAlignTree(CloneAlign):
             return
         if node.name is None:
             node.name = "node_" + str(self.count)
+            self.count += 1
         for child in node.clades:
             self.add_tree_node_name(child)
         return
