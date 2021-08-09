@@ -44,7 +44,7 @@ class CloneAlignTree(CloneAlign):
         self.tree.ladderize()
         self.count = 0
         # add name for nodes if the nodes don't have name
-        self.add_tree_node_name(tree.clade)
+        self.add_tree_node_name(self.tree.clade)
 
         self.min_cell_count_expr = min_cell_count_expr
         self.min_cell_count_cnv = min_cell_count_cnv

@@ -24,7 +24,7 @@ class CloneAlignVis:
         self.tree.ladderize()
         self.count = 0
         # add name for nodes if the nodes don't have name
-        self.add_tree_node_name(tree.clade)
+        self.add_tree_node_name(self.tree.clade)
 
         self.cnv_matrix = cnv_matrix
         self.expr_matrix = expr_matrix
@@ -154,6 +154,7 @@ class CloneAlignVis:
             return
         if node.name is None:
             node.name = "node_" + str(self.count)
+            self.count += 1
         for child in node.clades:
             self.add_tree_node_name(child)
         return
