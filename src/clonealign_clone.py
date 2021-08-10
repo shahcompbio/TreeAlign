@@ -44,6 +44,9 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_remove)]
 
+        if self.clone_df.shape[1] <= 1:
+            raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
+
         self.clone_assign_df = None
         self.gene_type_score_df = None
 
