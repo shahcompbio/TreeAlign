@@ -9,16 +9,17 @@ import simplejson as json
 
 
 class CloneAlignVis:
-    EXPR_CELL_ORDER = ['clonealign_tree_id', 'clonealign_clone_id', 'sample_id']
     CHR_DICT = {'1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8,
                 '9': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14, '15': 15,
                 '16': 16, '17': 17, '18': 18, '19': 19, '20': 20, '21': 21, '22': 22, 'X': 23, 'Y': 24}
 
     def __init__(self, genes, tree, cnv_matrix=None, expr_matrix=None,
                  clone_assign_clone=None, clone_assign_tree=None, cnv_meta=None, expr_meta=None,
-                 total_gene_count=2000, generate_sankey=True):
+                 total_gene_count=2000, generate_sankey=True,
+                 expr_cell_order=['clonealign_tree_id', 'clonealign_clone_id', 'infercnv_cluster_id', 'sample_id']):
         self.sankey = []
         self.genes = genes
+        self.expr_cell_order = expr_cell_order
 
         self.tree = tree
         self.tree.ladderize()
@@ -224,7 +225,7 @@ class CloneAlignVis:
         return output
 
     def order_expr_cells(self, generateSankey=True):
-        order_columns = [order_column for order_column in self.EXPR_CELL_ORDER if
+        order_columns = [order_column for order_column in self.expr_cell_order if
                          order_column in self.expr_meta.columns.values]
         # if the first column is also present in self.cnv_meta, match up with self.cnv_meta
         categories = [i for i in self.cnv_meta[order_columns[0]].unique().tolist() if i is not None]
