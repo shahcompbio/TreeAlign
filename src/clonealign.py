@@ -52,9 +52,6 @@ class CloneAlign():
 
         self.cnv_df[self.cnv_df > self.cnv_cutoff] = self.cnv_cutoff
 
-        if self.normalize_cnv:
-            self.cnv_df = self.cnv_df.div(self.cnv_df.min(axis=1), axis=0)
-
         return
 
     def generate_output(self):
@@ -70,7 +67,7 @@ class CloneAlign():
         return clone_assign_df, gene_type_score_df
 
     def __init__(self, expr, cnv, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=10,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.8,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5):
         '''
         initialize CloneAlign object
@@ -94,6 +91,7 @@ class CloneAlign():
         self.normalize_cnv = normalize_cnv
         self.cnv_cutoff = cnv_cutoff
 
+        self.min_consensus_gene_freq = min_consensus_gene_freq
         self.model_select = model_select
         self.repeat = repeat
 
@@ -142,26 +140,15 @@ class CloneAlign():
             per_copy_expr = pyro.sample('expose_per_copy_expr',
                                         dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
 
-            assert not np.isinf(per_copy_expr.data.numpy().sum())
-            assert not np.isnan(per_copy_expr.data.numpy().sum())
-
             per_copy_expr = softplus(per_copy_expr)
-
-            assert not np.isinf(per_copy_expr.data.numpy().sum())
-            assert not np.isnan(per_copy_expr.data.numpy().sum())
 
 
             # draw mean_expr from another softplus-transformed Normal distribution
             mean_expr = pyro.sample('expose_mean_expr',
                                     dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
 
-            assert not np.isinf(mean_expr.data.numpy().sum())
-            assert not np.isnan(mean_expr.data.numpy().sum())
-
             mean_expr = softplus(mean_expr)
 
-            assert not np.isinf(mean_expr.data.numpy().sum())
-            assert not np.isnan(mean_expr.data.numpy().sum())
 
             # draw w from Normal
             w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
@@ -171,18 +158,10 @@ class CloneAlign():
             gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
             #gene_type_score = gene_type_score.clamp(min=1e-10)
 
-            if np.isnan(gene_type_score.data.numpy().sum()):
-                print(gene_type_score.dtype)
-                pd.DataFrame(gene_type_score.data.numpy()).to_csv("test.csv")
-            assert not np.isinf(gene_type_score.data.numpy().sum())
-            assert not np.isnan(gene_type_score.data.numpy().sum())
-
             gene_type = pyro.sample('expose_gene_type',
                                     dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
                                                                   probs=gene_type_score))
             #gene_type = gene_type.clamp(min=1e-10)
-            assert not np.isinf(gene_type.data.numpy().sum())
-            assert not np.isnan(gene_type.data.numpy().sum())
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
@@ -190,22 +169,13 @@ class CloneAlign():
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
-            assert not np.isinf(clone_assign.data.numpy().sum())
-            assert not np.isnan(clone_assign.data.numpy().sum())
-
             # draw psi from Normal
             psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))
 
-            assert not np.isinf(psi.data.numpy().sum())
-            assert not np.isnan(psi.data.numpy().sum())
-
             # construct expected_expr
             expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type[:, 0] +
-                             mean_expr * gene_type[:, 1]) * \
+                             per_copy_expr * gene_type[:, 1]) * \
                             torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
-
-            assert not np.isinf(expected_expr.data.numpy().sum())
-            assert not np.isnan(expected_expr.data.numpy().sum())
 
             # draw expr from Multinomial
             pyro.sample('obs', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)

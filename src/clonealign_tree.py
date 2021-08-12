@@ -10,9 +10,9 @@ from .clonealign import CloneAlign
 class CloneAlignTree(CloneAlign):
 
     def __init__(self, expr, cnv, tree, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=10,
-                 min_cell_count_expr=20, min_cell_count_cnv=50, min_gene_diff=300, level_cutoff=10,
+                 min_cell_count_expr=20, min_cell_count_cnv=20, min_gene_diff=300, level_cutoff=10,
                  min_proceed_freq=0.7,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,min_consensus_gene_freq=0.8,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5):
         '''
         initialize CloneAlignTree object
@@ -38,7 +38,7 @@ class CloneAlignTree(CloneAlign):
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
         CloneAlign.__init__(self, expr, cnv, normalize_cnv, cnv_cutoff, model_select, repeat, min_clone_assign_prob,
-                            min_clone_assign_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
+                            min_clone_assign_freq, min_consensus_gene_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
 
         self.tree = tree
         self.tree.ladderize()
@@ -49,6 +49,7 @@ class CloneAlignTree(CloneAlign):
         self.min_cell_count_expr = min_cell_count_expr
         self.min_cell_count_cnv = min_cell_count_cnv
         self.min_gene_diff = min_gene_diff
+        self.min_consensus_gene_freq = min_consensus_gene_freq
         self.level_cutoff = level_cutoff
         self.min_proceed_freq = min_proceed_freq
 
@@ -154,15 +155,25 @@ class CloneAlignTree(CloneAlign):
 
         # get clone specific cnv profiles
         clone_cnv_list = []
+        mode_freq_list = []
         for terminal in terminals:
             cnv_subset = self.cnv_df[terminal]
-            clone_cnv_list.append(cnv_subset.mode(1)[0])
+            current_mode = cnv_subset.mode(1)[0]
+            clone_cnv_list.append(current_mode)
+            mode_freq_list.append(cnv_subset.eq(current_mode, axis=0).sum(axis=1).div(cnv_subset.shape[1]))
 
         # concatenate clone_cnv_list
         clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
+        mode_freq_df = pd.concat(mode_freq_list, axis=1)
 
         # remove non-variable genes
-        clone_cnv_df = clone_cnv_df[clone_cnv_df.var(1) > 0]
+        variance_filter = clone_cnv_df.var(1).gt(0)
+        mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
+        clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
+        # cnv normalization
+        if self.normalize_cnv:
+            clone_cnv_df = clone_cnv_df.div(clone_cnv_df[clone_cnv_df > 0].min(axis=1), axis=0)
+
 
         expr_input = self.expr_df[expr_cells]
         expr_input = expr_input[expr_input.mean(1) > 0]

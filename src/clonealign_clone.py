@@ -11,7 +11,7 @@ class CloneAlignClone(CloneAlign):
 
     def __init__(self, expr, cnv, clone, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=10,
                  min_clone_cell_count=20,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,min_consensus_gene_freq=0.2,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5):
         '''
         initialize CloneAlignClone object
@@ -32,17 +32,19 @@ class CloneAlignClone(CloneAlign):
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
         CloneAlign.__init__(self, expr, cnv, normalize_cnv, cnv_cutoff, model_select, repeat, min_clone_assign_prob,
-                            min_clone_assign_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
+                            min_clone_assign_freq, min_consensus_gene_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
 
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
         # only keep cells that have cnv profile
-        self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(self.cnv_df.columns.values)]
+        self.clone_df = self.clone_df[self.clone_df['cell_id'].isin(self.cnv_df.columns.values)]
 
         clone_cell_counts = self.clone_df['clone_id'].value_counts()
-        cells_to_remove = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
+        cells_to_keep = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
 
-        self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_remove)]
+        self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_keep)]
+
+
 
         if self.clone_df.shape[1] <= 1:
             raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
@@ -61,14 +63,25 @@ class CloneAlignClone(CloneAlign):
         :return: clone_assign_df (pandas.DataFrame) and gene_type_score_df (pandas.DataFrame)
         '''
         clone_cnv_list = []
+        mode_freq_list = []
         clones = self.clone_df["clone_id"].drop_duplicates().values
 
         for c in clones:
-            clone_cells = self.clone_df.loc[self.clone_df["clone_id"] == c, "cell_id"]
-            clone_cnv_list.append(self.cnv_df[clone_cells.values].mode(1).iloc[:, 0])
+            clone_cells = self.clone_df.loc[self.clone_df["clone_id"] == c, "cell_id"].values
+            cnv_subset = self.cnv_df[clone_cells]
+            current_mode = cnv_subset.mode(1)[0]
+            clone_cnv_list.append(current_mode)
+            mode_freq_list.append(cnv_subset.eq(current_mode, axis=0).sum(axis=1).div(cnv_subset.shape[1]))
 
         clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
-        clone_cnv_df = clone_cnv_df[clone_cnv_df.var(1) > 0]
+        mode_freq_df = pd.concat(mode_freq_list, axis=1)
+
+        variance_filter = clone_cnv_df.var(1).gt(0)
+        mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
+        clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
+        # normalize cnv
+        if self.normalize_cnv:
+            clone_cnv_df = clone_cnv_df.div(clone_cnv_df[clone_cnv_df > 0].min(axis=1), axis=0)
 
         expr_input = self.expr_df[self.expr_df.mean(1) > 0]
 
@@ -76,6 +89,12 @@ class CloneAlignClone(CloneAlign):
 
         expr_input = expr_input.loc[intersect_index,]
         clone_cnv_df = clone_cnv_df.loc[intersect_index,]
+
+        # run clonealign
+        clone_count = clone_cnv_df.shape[1]
+        print(f'Start run clonealign for {clone_count} clones:')
+        print("cnv gene count: " + str(clone_cnv_df.shape[0]))
+        print("expr cell count: " + str(expr_input.shape[1]))
 
         none_freq, clone_assign, gene_type_score, self.clone_assign_df, self.gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
 
