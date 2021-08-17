@@ -86,6 +86,7 @@ class CloneAlign():
         :param max_iter: max number of iterations of elbo optimization during inference. (int)
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
+        self.map_estimates = None
         self.expr_df = expr
         self.cnv_df = cnv
         self.normalize_cnv = normalize_cnv
@@ -281,10 +282,11 @@ class CloneAlign():
 
         clone_assign_prob_df = pd.DataFrame(clone_assign_prob.data.numpy())
 
-        # also record per_copy_expr
-        softplus = Softplus()
-        per_copy_expr = torch.mean(torch.sum(expr, 1)) * softplus(map_estimates['expose_per_copy_expr']) / 3000
-        self.per_copy_expr_df = pd.DataFrame(per_copy_expr.data.numpy())
+        # also record other parameters
+        self.map_estimates = map_estimates
+        # softplus = Softplus()
+        # per_copy_expr = torch.mean(torch.sum(expr, 1)) * softplus(map_estimates['expose_per_copy_expr']) / 3000
+        # self.per_copy_expr_df = pd.DataFrame(per_copy_expr.data.numpy())
 
         return clone_assign_prob_df, gene_type_score_df
 
