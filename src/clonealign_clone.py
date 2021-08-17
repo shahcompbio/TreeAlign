@@ -44,8 +44,6 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_keep)]
 
-
-
         if self.clone_df.shape[1] <= 1:
             raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
 

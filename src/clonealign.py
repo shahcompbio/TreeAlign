@@ -138,7 +138,7 @@ class CloneAlign():
         with pyro.plate('gene', num_of_genes):
             # draw per_copy_expr from softplus-transformed Normal distribution
             per_copy_expr = pyro.sample('expose_per_copy_expr',
-                                        dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+                                        dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 20))
 
             per_copy_expr = softplus(per_copy_expr)
 
@@ -208,7 +208,7 @@ class CloneAlign():
         with pyro.plate('gene', num_of_genes):
             # draw per_copy_expr from softplus-transformed Normal distribution
             per_copy_expr = pyro.sample('expose_per_copy_expr',
-                                        dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes)))
+                                        dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 20))
             per_copy_expr = softplus(per_copy_expr)
 
             # draw w from Normal
@@ -280,6 +280,11 @@ class CloneAlign():
             gene_type_score_df = pd.DataFrame(gene_type_score.data.numpy())
 
         clone_assign_prob_df = pd.DataFrame(clone_assign_prob.data.numpy())
+
+        # also record per_copy_expr
+        softplus = Softplus()
+        per_copy_expr = torch.mean(torch.sum(expr, 1)) * softplus(map_estimates['expose_per_copy_expr']) / 3000
+        self.per_copy_expr_df = pd.DataFrame(per_copy_expr.data.numpy())
 
         return clone_assign_prob_df, gene_type_score_df
 
