@@ -49,8 +49,8 @@ class CloneAlignSimulation:
             os.makedirs(output_dir)
 
         simulated_clone_assignment_format = output_dir + "/simulated_clone_assignment_cell_{cell_count}_cnv_{cnv_freq}.csv"
-        simulated_gene_type_score_format = output_dir + "/simulated_gene_type_score_{cell_count}_cnv_{cnv_freq}.csv"
-        simulated_expr_format = output_dir + "/simulated_expr_{cell_count}_cnv_{cnv_freq}.csv"
+        simulated_gene_type_score_format = output_dir + "/simulated_gene_type_score_cell_{cell_count}_cnv_{cnv_freq}.csv"
+        simulated_expr_format = output_dir + "/simulated_expr_cell_{cell_count}_cnv_{cnv_freq}.csv"
 
         for i in range(len(cnv_dependency_freqs)):
             for j in range(len(cell_samples)):
