@@ -3,6 +3,8 @@ CloneAlignSimulation class
 """
 import torch
 import os
+import pyro
+import pyro.distributions as dist
 from torch.nn import Softplus
 import pandas as pd
 import random
@@ -82,11 +84,18 @@ class CloneAlignSimulation:
 
         gene_type_score = torch.tensor(gene_type_score.values)
 
-        expected_expr = (per_copy_expr * gene_type_score * current_cnv +
-                         per_copy_expr * (1 - gene_type_score)) * \
-                        torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
+        with pyro.plate('cell', len(cell_sample)):
 
-        expected_expr_df = pd.DataFrame(expected_expr.transpose(0, 1).detach().numpy())
+            expected_expr = (per_copy_expr * current_cnv * gene_type_score[:, 0] +
+                             per_copy_expr * gene_type_score[:, 1]) * \
+                            torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
+
+            # draw expr from Multinomial
+            expr_simulated = pyro.sample('obs',
+                                         dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False))
+
+
+        expected_expr_df = pd.DataFrame(expr_simulated.transpose(0, 1).detach().numpy())
         expected_expr_df.index = self.summarized_gene_type_score['gene'][gene_ids]
 
         gene_type_score_simulated = pd.DataFrame(
