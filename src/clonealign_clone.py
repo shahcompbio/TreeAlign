@@ -77,9 +77,12 @@ class CloneAlignClone(CloneAlign):
         variance_filter = clone_cnv_df.var(1).gt(0)
         mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
         clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
+        self.cnv_df = self.cnv_df[variance_filter & mode_freq_filter]
         # normalize cnv
         if self.normalize_cnv:
-            clone_cnv_df = clone_cnv_df.div(clone_cnv_df[clone_cnv_df > 0].min(axis=1), axis=0)
+            cnv_correction = clone_cnv_df[clone_cnv_df > 0].min(axis=1)
+            clone_cnv_df = clone_cnv_df.div(cnv_correction, axis=0)
+            self.cnv_df = self.cnv_df.div(cnv_correction, axis=0)
 
         expr_input = self.expr_df[self.expr_df.mean(1) > 0]
 

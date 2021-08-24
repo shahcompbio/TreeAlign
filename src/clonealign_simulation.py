@@ -12,7 +12,7 @@ from .clonealign_clone import CloneAlignClone
 class CloneAlignSimulation:
     def __init__(self, expr, cnv, clone):
         # run CloneAlignClone on real data
-        obj = CloneAlignClone(expr, cnv, clone, normalize_cnv=False, cnv_cutoff=10, model_select="gene", repeat=1,
+        obj = CloneAlignClone(expr, cnv, clone, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=1,
                               min_clone_cell_count=20,
                               min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,
                               max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400,
@@ -20,8 +20,8 @@ class CloneAlignSimulation:
         summarized_clone_assign, summarized_gene_type_score, clone_assign_df, gene_type_score_df = obj.assign_cells_to_clones()
         self.summarized_gene_type_score = summarized_gene_type_score
         self.map_estimates = obj.map_estimates
-        self.cnv = cnv
-        self.clone = clone
+        self.cnv = obj.cnv_df
+        self.clone = obj.clone_df
 
     def simulate_data(self, output_dir, gene_count=500, cell_counts=[100, 500, 1000],
                       cnv_dependency_freqs=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]):
