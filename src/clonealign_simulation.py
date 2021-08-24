@@ -36,7 +36,7 @@ class CloneAlignSimulation:
             current_samples = random.choices(range(self.cnv.shape[1]), k=cell_counts[i] - cell_counts[i - 1])
             cell_samples.append(cell_samples[i - 1] + current_samples)
 
-        gene_ids = random.choices(range(self.summarized_gene_type_score.shape[0]), k=gene_count)
+        gene_ids = random.sample(range(self.summarized_gene_type_score.shape[0]), k=gene_count)
 
         gene_type_score_dict = {}
         for cnv_dependency_freq in cnv_dependency_freqs:
