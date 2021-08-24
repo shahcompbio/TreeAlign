@@ -86,8 +86,8 @@ class CloneAlignSimulation:
 
         with pyro.plate('cell', len(cell_sample)):
 
-            expected_expr = (per_copy_expr * current_cnv * gene_type_score[:, 0] +
-                             per_copy_expr * gene_type_score[:, 1]) * \
+            expected_expr = (per_copy_expr * current_cnv * gene_type_score +
+                             per_copy_expr * (1 - gene_type_score)) * \
                             torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
             # draw expr from Multinomial
