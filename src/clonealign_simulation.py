@@ -90,7 +90,7 @@ class CloneAlignSimulation:
         expected_expr_df.index = self.summarized_gene_type_score['gene'][gene_ids]
 
         gene_type_score_simulated = pd.DataFrame(
-            {'gene': expected_expr_df.index.values, 'gene_type_score': gene_type_score.values})
+            {'gene': expected_expr_df.index.values, 'gene_type_score': gene_type_score.detach().numpy()})
 
         cell_sample_names = self.cnv.columns.values[cell_sample].tolist()
         simulated_cell_assignment = pd.DataFrame(
