@@ -7,7 +7,7 @@ class ConvertNodeToClone:
     def __init__(self, tree, node_assign, clone_assign):
         self.tree = tree
         self.node_assign = node_assign
-        self.clone_assign =clone_assign
+        self.clone_assign = clone_assign
         self.tree.ladderize()
         self.count = 0
         # add name for nodes if the nodes don't have name
@@ -35,7 +35,7 @@ class ConvertNodeToClone:
         if current_clade.is_terminal():
             return
         if current_clade.name in self.nodes:
-            current_terminals = [terminal.name for terminal in current_clade.get_terminals()]
+            current_terminals = [terminal.name for terminal in current_clade.get_terminals() if terminal.name in self.clone_assign.index.values]
             clone_assign = self.clone_assign.loc[current_terminals, "clone_id"].value_counts()
             freq = clone_assign[0]/len(current_terminals)
             if freq >= cut_off:
