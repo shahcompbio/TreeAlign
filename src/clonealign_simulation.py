@@ -49,9 +49,9 @@ class CloneAlignSimulation:
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
 
-        simulated_clone_assignment_format = output_dir + "/simulated_clone_assignment_cell_{cell_count}_cnv_{cnv_freq}.csv"
-        simulated_gene_type_score_format = output_dir + "/simulated_gene_type_score_cell_{cell_count}_cnv_{cnv_freq}.csv"
-        simulated_expr_format = output_dir + "/simulated_expr_cell_{cell_count}_cnv_{cnv_freq}.csv"
+        simulated_clone_assignment_format = output_dir + "/simulated_clone_assignment_gene_{gene_count}_cell_{cell_count}_cnv_{cnv_freq}.csv"
+        simulated_gene_type_score_format = output_dir + "/simulated_gene_type_score_gene_{gene_count}_cell_{cell_count}_cnv_{cnv_freq}.csv"
+        simulated_expr_format = output_dir + "/simulated_expr_gene_{gene_count}_cell_{cell_count}_cnv_{cnv_freq}.csv"
 
         for i in range(len(cnv_dependency_freqs)):
             for j in range(len(cell_samples)):
@@ -61,11 +61,11 @@ class CloneAlignSimulation:
                 simulated_cell_assignment, gene_type_score_simulated, expected_expr_df = self.simulate_individual_data(
                     gene_ids, cell_sample, gene_type_score_df[current_freq])
                 simulated_cell_assignment.to_csv(
-                    simulated_clone_assignment_format.format(cell_count=len(cell_sample), cnv_freq=current_freq))
+                    simulated_clone_assignment_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count))
                 gene_type_score_simulated.to_csv(
-                    simulated_gene_type_score_format.format(cell_count=len(cell_sample), cnv_freq=current_freq))
+                    simulated_gene_type_score_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count))
                 expected_expr_df.to_csv(
-                    simulated_expr_format.format(cell_count=len(cell_sample), cnv_freq=current_freq))
+                    simulated_expr_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count))
 
     def simulate_individual_data(self, gene_ids, cell_sample, gene_type_score):
 
