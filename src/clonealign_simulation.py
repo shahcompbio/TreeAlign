@@ -85,7 +85,6 @@ class CloneAlignSimulation:
         gene_type_score = torch.tensor(gene_type_score.values)
 
         with pyro.plate('cell', len(cell_sample)):
-
             expected_expr = (per_copy_expr * current_cnv * gene_type_score +
                              per_copy_expr * (1 - gene_type_score)) * \
                             torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))

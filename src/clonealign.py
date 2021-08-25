@@ -166,7 +166,7 @@ class CloneAlign():
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
-            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
+            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 0.1))
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
@@ -217,7 +217,7 @@ class CloneAlign():
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
-            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)))
+            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)) * 0.1)
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
@@ -316,11 +316,16 @@ class CloneAlign():
             current_clone_assign_discrete[current_clone_assign_prob < self.min_clone_assign_prob] = np.nan
             clone_assign_list.append(current_clone_assign_discrete)
 
-            gene_type_score_list.append(gene_type_score.iloc[:, 0])
+            if self.model_select == "gene":
+                gene_type_score_list.append(gene_type_score.iloc[:, 0])
 
         clone_assign = pd.concat(clone_assign_list, axis=1)
-        gene_type_score = pd.concat(gene_type_score_list, axis=1)
-        gene_type_score_mean = gene_type_score.mean(1)
+        if len(gene_type_score_list) > 0:
+            gene_type_score = pd.concat(gene_type_score_list, axis=1)
+            gene_type_score_mean = gene_type_score.mean(1)
+        else:
+            gene_type_score = None
+            gene_type_score_mean = None
 
         clone_assign_max = clone_assign.mode(1, dropna=False)[0]
         clone_assign_freq = clone_assign.apply(max_count, axis=1) / self.repeat

@@ -91,6 +91,10 @@ class CloneAlignClone(CloneAlign):
         expr_input = expr_input.loc[intersect_index,]
         clone_cnv_df = clone_cnv_df.loc[intersect_index,]
 
+        # reorder self.cnv_df and self.expr_df
+        self.expr_df = self.expr_df.loc[intersect_index, ]
+        self.cnv_df = self.cnv_df.loc[intersect_index, ]
+
         # run clonealign
         clone_count = clone_cnv_df.shape[1]
         print(f'Start run clonealign for {clone_count} clones:')
@@ -105,7 +109,8 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_assign_df.replace(clones_dict, inplace=True)
         self.clone_assign_df.index = expr_input.columns.values
-        self.gene_type_score_df.index = expr_input.index.values
+        if self.gene_type_score_df is not None:
+            self.gene_type_score_df.index = expr_input.index.values
 
         # record clone_assign
         for i in range(expr_input.shape[1]):
@@ -115,7 +120,8 @@ class CloneAlignClone(CloneAlign):
                 self.clone_assign_dict[expr_input.columns.values[i]] = clones[int(clone_assign.values[i])]
 
         # record gene_type_score
-        for i in range(expr_input.shape[0]):
-            self.gene_type_score_dict[expr_input.index.values[i]] = gene_type_score.values[i]
+        if gene_type_score is not None:
+            for i in range(expr_input.shape[0]):
+                self.gene_type_score_dict[expr_input.index.values[i]] = gene_type_score.values[i]
 
         return self.generate_output()
