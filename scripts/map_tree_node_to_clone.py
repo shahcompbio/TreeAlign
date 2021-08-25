@@ -36,6 +36,7 @@ class ConvertNodeToClone:
             return
         if current_clade.name in self.nodes:
             current_terminals = [terminal.name for terminal in current_clade.get_terminals() if terminal.name in self.clone_assign.index]
+            print(current_terminals)
             clone_assign = self.clone_assign.loc[current_terminals, "clone_id"].value_counts()
             freq = clone_assign[0]/len(current_terminals)
             if freq >= cut_off:
