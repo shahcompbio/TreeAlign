@@ -21,7 +21,7 @@ class CloneAlignSimulation:
                               rel_tol=5e-5)
         summarized_clone_assign, summarized_gene_type_score, clone_assign_df, gene_type_score_df = obj.assign_cells_to_clones()
         self.map_estimates = obj.map_estimates
-        self.cnv = obj.cnv_df
+        self.clone_cnv_df = obj.clone_cnv_df
         self.clone = obj.clone_df
 
     def simulate_data(self, output_dir, gene_count=500, cell_counts=[100, 500, 1000],
@@ -32,12 +32,12 @@ class CloneAlignSimulation:
 
         cell_samples = []
 
-        cell_samples.append(random.choices(range(self.cnv.shape[1]), k=cell_counts[0]))
+        cell_samples.append(random.choices(range(self.clone_cnv_df.shape[1]), k=cell_counts[0]))
         for i in range(1, len(cell_counts)):
-            current_samples = random.choices(range(self.cnv.shape[1]), k=cell_counts[i] - cell_counts[i - 1])
+            current_samples = random.choices(range(self.clone_cnv_df.shape[1]), k=cell_counts[i] - cell_counts[i - 1])
             cell_samples.append(cell_samples[i - 1] + current_samples)
 
-        gene_ids = random.sample(range(self.cnv.shape[0]), k=gene_count)
+        gene_ids = random.sample(range(self.clone_cnv_df.shape[0]), k=gene_count)
 
         gene_type_score_dict = {}
         for cnv_dependency_freq in cnv_dependency_freqs:
@@ -69,7 +69,7 @@ class CloneAlignSimulation:
 
     def simulate_individual_data(self, gene_ids, cell_sample, gene_type_score):
 
-        current_cnv_df = self.cnv.iloc[gene_ids, cell_sample]
+        current_cnv_df = self.clone_cnv_df.iloc[gene_ids, cell_sample]
         current_cnv = torch.tensor(current_cnv_df.values).transpose(0, 1)
 
         per_copy_expr = self.map_estimates['expose_per_copy_expr'][gene_ids]
@@ -101,10 +101,8 @@ class CloneAlignSimulation:
         gene_type_score_simulated = pd.DataFrame(
             {'gene': expected_expr_df.index.values, 'gene_type_score': gene_type_score.detach().numpy()})
 
-        cell_sample_names = self.cnv.columns.values[cell_sample].tolist()
+        cell_sample_names = self.clone_cnv_df.columns.values[cell_sample].tolist()
         simulated_cell_assignment = pd.DataFrame(
-            {'cell_id': cell_sample_names, 'expr_cell_id': expected_expr_df.columns.values.tolist()})
-
-        simulated_cell_assignment = simulated_cell_assignment.merge(self.clone, how='left')
+            {'expr_cell_id': expected_expr_df.columns.values.tolist(), 'clone_id': cell_sample_names})
 
         return simulated_cell_assignment, gene_type_score_simulated, expected_expr_df

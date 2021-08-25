@@ -43,6 +43,7 @@ class CloneAlignClone(CloneAlign):
         cells_to_keep = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
 
         self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_keep)]
+        self.clone_cnv_df = None
 
         if self.clone_df.shape[1] <= 1:
             raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
@@ -74,6 +75,8 @@ class CloneAlignClone(CloneAlign):
         clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
         mode_freq_df = pd.concat(mode_freq_list, axis=1)
 
+        clone_cnv_df.columns = clones
+
         variance_filter = clone_cnv_df.var(1).gt(0)
         mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
         clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
@@ -97,6 +100,8 @@ class CloneAlignClone(CloneAlign):
 
         # run clonealign
         clone_count = clone_cnv_df.shape[1]
+
+        self.clone_cnv_df = clone_cnv_df
         print(f'Start run clonealign for {clone_count} clones:')
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
