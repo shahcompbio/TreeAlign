@@ -8,6 +8,7 @@ import pyro.distributions as dist
 from torch.nn import Softplus
 import pandas as pd
 import random
+from pyro.ops.indexing import Vindex
 from .clonealign_clone import CloneAlignClone
 
 
@@ -69,7 +70,7 @@ class CloneAlignSimulation:
 
     def simulate_individual_data(self, gene_ids, cell_sample, gene_type_score):
 
-        current_cnv_df = self.clone_cnv_df.iloc[gene_ids, cell_sample]
+        current_cnv_df = self.clone_cnv_df.iloc[gene_ids, ]
         current_cnv = torch.tensor(current_cnv_df.values).transpose(0, 1)
 
         per_copy_expr = self.map_estimates['expose_per_copy_expr'][gene_ids]
@@ -86,7 +87,7 @@ class CloneAlignSimulation:
         gene_type_score = torch.tensor(gene_type_score.values)
 
         with pyro.plate('cell', len(cell_sample)):
-            expected_expr = (per_copy_expr * current_cnv * gene_type_score +
+            expected_expr = (per_copy_expr * Vindex(current_cnv)[cell_sample] * gene_type_score +
                              per_copy_expr * (1 - gene_type_score)) * \
                             torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
 
