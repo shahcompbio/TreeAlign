@@ -217,7 +217,7 @@ class CloneAlign():
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
-            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones)) * 0.1)
+            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 0.1))
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 

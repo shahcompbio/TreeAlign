@@ -20,7 +20,6 @@ class CloneAlignSimulation:
                               max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400,
                               rel_tol=5e-5)
         summarized_clone_assign, summarized_gene_type_score, clone_assign_df, gene_type_score_df = obj.assign_cells_to_clones()
-        self.summarized_gene_type_score = summarized_gene_type_score
         self.map_estimates = obj.map_estimates
         self.cnv = obj.cnv_df
         self.clone = obj.clone_df
@@ -38,7 +37,7 @@ class CloneAlignSimulation:
             current_samples = random.choices(range(self.cnv.shape[1]), k=cell_counts[i] - cell_counts[i - 1])
             cell_samples.append(cell_samples[i - 1] + current_samples)
 
-        gene_ids = random.sample(range(self.summarized_gene_type_score.shape[0]), k=gene_count)
+        gene_ids = random.sample(range(self.cnv.shape[0]), k=gene_count)
 
         gene_type_score_dict = {}
         for cnv_dependency_freq in cnv_dependency_freqs:
@@ -70,12 +69,14 @@ class CloneAlignSimulation:
 
     def simulate_individual_data(self, gene_ids, cell_sample, gene_type_score):
 
-        current_cnv = self.cnv.iloc[gene_ids, cell_sample]
-        current_cnv = torch.tensor(current_cnv.values).transpose(0, 1)
+        current_cnv_df = self.cnv.iloc[gene_ids, cell_sample]
+        current_cnv = torch.tensor(current_cnv_df.values).transpose(0, 1)
 
         per_copy_expr = self.map_estimates['expose_per_copy_expr'][gene_ids]
         w = self.map_estimates['expose_w'][gene_ids]
-        psi = self.map_estimates['expose_psi'][cell_sample]
+
+        psi = self.map_estimates['expose_psi']
+        psi = psi[random.choices(range(psi.shape[0]), k=len(cell_sample))]
 
         softplus = Softplus()
 
@@ -95,7 +96,7 @@ class CloneAlignSimulation:
 
 
         expected_expr_df = pd.DataFrame(expr_simulated.transpose(0, 1).detach().numpy())
-        expected_expr_df.index = self.summarized_gene_type_score['gene'][gene_ids]
+        expected_expr_df.index = current_cnv_df.index.values
 
         gene_type_score_simulated = pd.DataFrame(
             {'gene': expected_expr_df.index.values, 'gene_type_score': gene_type_score.detach().numpy()})
