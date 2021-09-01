@@ -47,7 +47,7 @@ class CloneAlignVis:
         # if we have both tree and tree-based clonealign results
         if self.clone_assign_tree is not None:
             # get clean clone assign tree results
-            self.clone_assign_tree, self.pie_chart = self.clean_tree_based_clonealign_output(self.tree,
+            self.clone_assign_tree, self.pie_chart = CloneAlignVis.clean_tree_based_clonealign_output(self.tree,
                                                                                              self.clone_assign_tree)
             # get terminal nodes
             self.terminal_nodes = []
@@ -276,17 +276,19 @@ class CloneAlignVis:
 
         return cnv_clone_assign
 
-    def get_all_non_terminal_nodes(self, clade, node_child_dict):
+    @staticmethod
+    def get_all_non_terminal_nodes(clade, node_child_dict):
         if clade.is_terminal():
             return [clade.name]
         else:
             output = [i.name for i in clade.clades]
             for child in clade.clades:
-                output = output + self.get_all_non_terminal_nodes(child, node_child_dict)
+                output = output + CloneAlignVis.get_all_non_terminal_nodes(child, node_child_dict)
             node_child_dict[clade.name] = output;
         return node_child_dict[clade.name]
 
-    def update_tree_node_assign(self, update_assign_dict, root, assigned_nodes, node_dict):
+    @staticmethod
+    def update_tree_node_assign(update_assign_dict, root, assigned_nodes, node_dict):
         if root.is_terminal():
             return
         all_nodes = node_dict[root.name]
@@ -297,12 +299,13 @@ class CloneAlignVis:
                 match_node = node
         if count >= 2:
             for clade in root.clades:
-                self.update_tree_node_assign(update_assign_dict, clade, assigned_nodes, node_dict)
+                CloneAlignVis.update_tree_node_assign(update_assign_dict, clade, assigned_nodes, node_dict)
         elif count == 1:
             update_assign_dict[match_node] = root.name
         return
 
-    def clone_assign_df_to_dict(self, clone_assign_df):
+    @staticmethod
+    def clone_assign_df_to_dict(clone_assign_df):
         clone_assign_dict = {}
         for i in range(clone_assign_df.shape[0]):
             if clone_assign_df["clonealign_tree_id"].values[i] not in clone_assign_dict:
@@ -311,7 +314,8 @@ class CloneAlignVis:
                 clone_assign_df["cell_id"].values[i])
         return clone_assign_dict
 
-    def count_cells_in_clade(self, clade, clone_assign_dict, clade_cell_count_dict):
+    @staticmethod
+    def count_cells_in_clade(clade, clone_assign_dict, clade_cell_count_dict):
         count = 0
         if clade.is_terminal():
             clade_cell_count_dict[clade.name] = 0
@@ -320,11 +324,12 @@ class CloneAlignVis:
             if clade.name in clone_assign_dict:
                 count += len(clone_assign_dict[clade.name])
             for child in clade.clades:
-                count += self.count_cells_in_clade(child, clone_assign_dict, clade_cell_count_dict)
+                count += CloneAlignVis.count_cells_in_clade(child, clone_assign_dict, clade_cell_count_dict)
             clade_cell_count_dict[clade.name] = count
             return count
 
-    def summarize_node_cell_freq(self, clade, clone_assign_dict, clade_cell_count_dict, result_dict):
+    @staticmethod
+    def summarize_node_cell_freq(clade, clone_assign_dict, clade_cell_count_dict, result_dict):
         if clade.is_terminal():
             return
         else:
@@ -334,7 +339,7 @@ class CloneAlignVis:
                 if clade_cell_count_dict[child.name] > 0:
                     current_result_dict[child.name] = clade_cell_count_dict[child.name]
                     child_sum += clade_cell_count_dict[child.name]
-                    self.summarize_node_cell_freq(child, clone_assign_dict, clade_cell_count_dict, result_dict)
+                    CloneAlignVis.summarize_node_cell_freq(child, clone_assign_dict, clade_cell_count_dict, result_dict)
 
             remain_sum = clade_cell_count_dict[clade.name] - child_sum
             if len(current_result_dict) >= 2:
@@ -346,7 +351,8 @@ class CloneAlignVis:
             return
 
     # find nodes that are inter-changable
-    def find_interchangable_clades(self, clade, clade_cell_count_dict, interchangable_clades_dict):
+    @staticmethod
+    def find_interchangable_clades(clade, clade_cell_count_dict, interchangable_clades_dict):
         node_queue = []
         if not clade.is_terminal():
             node_queue.append(clade)
@@ -362,22 +368,25 @@ class CloneAlignVis:
                             node_queue.append(child)
 
     # unify node name by referring to interchangable_clades_dict
-    def unify_node_name(self, clade_name, interchangable_clades_dict):
+    @staticmethod
+    def unify_node_name(clade_name, interchangable_clades_dict):
         while clade_name in interchangable_clades_dict:
             clade_name = interchangable_clades_dict[clade_name]
         return clade_name
 
-    def generate_unify_node_name_dict(self, interchangable_clades_dict):
+    @staticmethod
+    def generate_unify_node_name_dict(interchangable_clades_dict):
         roots = interchangable_clades_dict.keys()
         result_dict = {}
         for clade in roots:
-            result_dict[clade] = self.unify_node_name(clade, interchangable_clades_dict)
+            result_dict[clade] = CloneAlignVis.unify_node_name(clade, interchangable_clades_dict)
         return result_dict
 
         # generate cleaned tree-based clone assignment meta data and node pie chart annotations
 
     # return
-    def clean_tree_based_clonealign_output(self, tree, clone_assign):
+    @staticmethod
+    def clean_tree_based_clonealign_output(tree, clone_assign):
         clade = tree.clade
 
         assigned_nodes = set(clone_assign["clonealign_tree_id"].values)
@@ -385,33 +394,33 @@ class CloneAlignVis:
         update_assign_dict = {}
         node_child_dict = {}
 
-        self.get_all_non_terminal_nodes(clade, node_child_dict)
+        CloneAlignVis.get_all_non_terminal_nodes(clade, node_child_dict)
 
-        self.update_tree_node_assign(update_assign_dict, clade, assigned_nodes, node_child_dict)
+        CloneAlignVis.update_tree_node_assign(update_assign_dict, clade, assigned_nodes, node_child_dict)
 
         clone_assign = clone_assign.replace(update_assign_dict)
 
-        clone_assign_dict = self.clone_assign_df_to_dict(clone_assign)
+        clone_assign_dict = CloneAlignVis.clone_assign_df_to_dict(clone_assign)
 
         # summarize number of cells assigned to each clade
         clade_cell_count_dict = {}
         result_dict = {}
 
-        self.count_cells_in_clade(clade, clone_assign_dict, clade_cell_count_dict)
+        CloneAlignVis.count_cells_in_clade(clade, clone_assign_dict, clade_cell_count_dict)
 
-        self.summarize_node_cell_freq(clade, clone_assign_dict, clade_cell_count_dict, result_dict)
+        CloneAlignVis.summarize_node_cell_freq(clade, clone_assign_dict, clade_cell_count_dict, result_dict)
 
         interchangable_clades_dict = {}
-        self.find_interchangable_clades(clade, clade_cell_count_dict, interchangable_clades_dict)
+        CloneAlignVis.find_interchangable_clades(clade, clade_cell_count_dict, interchangable_clades_dict)
 
-        unify_dict = self.generate_unify_node_name_dict(interchangable_clades_dict)
+        unify_dict = CloneAlignVis.generate_unify_node_name_dict(interchangable_clades_dict)
         clone_assign = clone_assign.replace(unify_dict)
 
         result_list = []
         for node in result_dict:
-            current_result = {"name": self.unify_node_name(node, interchangable_clades_dict), "value": []}
+            current_result = {"name": CloneAlignVis.unify_node_name(node, interchangable_clades_dict), "value": []}
             for child_node in result_dict[node]:
-                current_result["value"].append({"name": self.unify_node_name(child_node, interchangable_clades_dict),
+                current_result["value"].append({"name": CloneAlignVis.unify_node_name(child_node, interchangable_clades_dict),
                                                 "value": result_dict[node][child_node]})
             result_list.append(current_result)
 
