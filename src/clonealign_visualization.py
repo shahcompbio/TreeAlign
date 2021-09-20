@@ -101,7 +101,7 @@ class CloneAlignVis:
             root = self.tree.clade
 
             def get_json(clade):
-                js_output = {"name": clade.name}
+                js_output = {"name": clade.name, "length": clade.branch_length}
                 if not clade.is_terminal():
                     clades = clade.clades
                     js_output["children"] = []
