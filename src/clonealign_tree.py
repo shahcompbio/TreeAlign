@@ -198,6 +198,7 @@ class CloneAlignTree(CloneAlign):
         print("Clonealign finished!")
 
         if 1 - none_freq < self.min_proceed_freq:
+            print("CloneAlign Tree Stops at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
             for cl in clean_clades:
                 self.pruned_clades.add(cl.name)
             return
