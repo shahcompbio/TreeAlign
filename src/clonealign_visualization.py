@@ -95,6 +95,20 @@ class CloneAlignVis:
         # bin float expr to discrete
         self.bin_expr_matrix()
 
+    # compute clone-specific copy number profiles
+    def compute_clone_specific_cnv(self, clone_id_name):
+        clone_cnv_list = []
+        clones = self.cnv_meta[clone_id_name].drop_duplicates().values
+
+        for c in clones:
+            clone_cells = self.cnv_matrix.loc[self.clone_df[clone_id_name] == c, "cell_id"].values
+            cnv_subset = self.cnv_matrix[clone_cells]
+            current_mode = cnv_subset.mode(1)[0]
+            clone_cnv_list.append(current_mode)
+
+        clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
+        return clone_cnv_df
+
     def output_json(self):
         output = dict()
         if self.tree is not None:
