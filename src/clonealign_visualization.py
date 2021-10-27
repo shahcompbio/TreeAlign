@@ -27,6 +27,7 @@ class CloneAlignVis:
         # add name for nodes if the nodes don't have name
         self.add_tree_node_name(self.tree.clade)
 
+        self.cnv = cnv_matrix
         self.cnv_matrix = cnv_matrix
         self.expr_matrix = expr_matrix
         # rename column names
@@ -102,7 +103,7 @@ class CloneAlignVis:
 
         for c in clones:
             clone_cells = self.cnv_meta.loc[self.cnv_meta[clone_id_name] == c, "cell_id"].values
-            cnv_subset = self.cnv_matrix[clone_cells]
+            cnv_subset = self.cnv[clone_cells]
             current_mode = cnv_subset.mode(1)[0]
             clone_cnv_list.append(current_mode)
 
