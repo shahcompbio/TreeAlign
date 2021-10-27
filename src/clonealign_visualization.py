@@ -101,7 +101,7 @@ class CloneAlignVis:
         clones = self.cnv_meta[clone_id_name].drop_duplicates().values
 
         for c in clones:
-            clone_cells = self.cnv_matrix.loc[self.clone_df[clone_id_name] == c, "cell_id"].values
+            clone_cells = self.cnv_matrix.loc[self.cnv_meta[clone_id_name] == c, "cell_id"].values
             cnv_subset = self.cnv_matrix[clone_cells]
             current_mode = cnv_subset.mode(1)[0]
             clone_cnv_list.append(current_mode)
