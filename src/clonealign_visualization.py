@@ -27,7 +27,7 @@ class CloneAlignVis:
         # add name for nodes if the nodes don't have name
         self.add_tree_node_name(self.tree.clade)
 
-        self.cnv = cnv_matrix
+        self.cnv = cnv_matrix.copy()
         self.cnv_matrix = cnv_matrix
         self.expr_matrix = expr_matrix
         # rename column names
