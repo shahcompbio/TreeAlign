@@ -107,6 +107,7 @@ class CloneAlignVis:
             clone_cnv_list.append(current_mode)
 
         clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
+        clone_cnv_df.columns = clones
         return clone_cnv_df
 
     def output_json(self):
