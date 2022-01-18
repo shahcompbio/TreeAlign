@@ -1,8 +1,8 @@
 .DS_Store
 .RData
 .Rhistory
-_pycache_
-.idea
-.ipynb_checkpoints
-data/simulation
+__pycache__/*
+.idea/*
+.ipynb_checkpoints/*
+scripts/simulation/*
 
