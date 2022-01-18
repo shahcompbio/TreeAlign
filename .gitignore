@@ -1,0 +1,8 @@
+.DS_Store
+.RData
+.Rhistory
+_pycache_
+.idea
+.ipynb_checkpoints
+data/simulation
+
