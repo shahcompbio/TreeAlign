@@ -187,6 +187,8 @@ class CloneAlignTree(CloneAlign):
             # add all clean clades to pruned clades
             for clade in clean_clades:
                 self.pruned_clades.add(clade.name)
+            print("cnv gene count less than self.min_gene_diff: " + str(clone_cnv_df.shape[0]))
+            return
 
         # run clonealign
         print("Start run clonealign for clade: " + current_clade.name)
