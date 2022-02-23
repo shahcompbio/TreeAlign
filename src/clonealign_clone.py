@@ -74,13 +74,13 @@ class CloneAlignClone(CloneAlign):
 
         clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
         mode_freq_df = pd.concat(mode_freq_list, axis=1)
-
         clone_cnv_df.columns = clones
 
         variance_filter = clone_cnv_df.var(1).gt(0)
         mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
         clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
         self.cnv_df = self.cnv_df[variance_filter & mode_freq_filter]
+
         # normalize cnv
         if self.normalize_cnv:
             cnv_correction = clone_cnv_df[clone_cnv_df > 0].min(axis=1)
@@ -97,7 +97,6 @@ class CloneAlignClone(CloneAlign):
         # reorder self.cnv_df and self.expr_df
         self.expr_df = self.expr_df.loc[intersect_index, ]
         self.cnv_df = self.cnv_df.loc[intersect_index, ]
-
         # run clonealign
         clone_count = clone_cnv_df.shape[1]
 
@@ -105,6 +104,10 @@ class CloneAlignClone(CloneAlign):
         print(f'Start run clonealign for {clone_count} clones:')
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
+
+        if(clone_cnv_df.shape[0] == 0):
+            raise ValueError('No valid genes exist in the cnv matrix after filtering. Maybe loose the filtering criteria? or the cnv profiles of clones are too similar.')
+        
 
         none_freq, clone_assign, gene_type_score, self.clone_assign_df, self.gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
 
