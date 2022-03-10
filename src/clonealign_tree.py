@@ -120,11 +120,16 @@ class CloneAlignTree(CloneAlign):
         if level > self.level_cutoff:
             # add to pruned_clades
             self.pruned_clades.add(current_clade.name)
+            print("At " + current_clade.name + ", the level limit exceeds.")
             return
 
         all_terminals = current_clade.get_terminals()
         if len(expr_cells) < self.min_cell_count_expr or len(all_terminals) < self.min_cell_count_cnv:
             self.pruned_clades.add(current_clade.name)
+            if len(expr_cells) < self.min_cell_count_expr:
+                print("At " + current_clade.name + ", there are less than " + str(self.min_cell_count_expr) + " cells in the expr matrix.")
+            if len(all_terminals) < self.min_cell_count_cnv:
+                print("At " + current_clade.name + ", there are less than " + str(self.min_cell_count_cnv) + " clades in the cnv matrix.")
             return
 
         # get next clades
@@ -135,7 +140,8 @@ class CloneAlignTree(CloneAlign):
         clean_clades = []
 
         for cl in clades:
-            current_terminals = [e.name for e in cl.get_terminals()]
+            current_terminals = [e.name for e in cl.get_terminals() if e.name in self.cnv_df.columns]
+            print("At " + cl.name + ", there are " + str(len(current_terminals)) + " terminals. ")
             if len(current_terminals) < self.min_cell_count_cnv:
                 self.pruned_clades.add(cl.name)
             else:
@@ -147,10 +153,12 @@ class CloneAlignTree(CloneAlign):
             for cell in expr_cells:
                 self.clone_assign_dict[cell] = clean_clades[0].name
             self.assign_cells_to_clade(clean_clades[0], expr_cells, level + 1)
+            print("At " + current_clade.name + ", there is only one clean child clade existing.")
             return
 
         # if there is no clone, return
         if len(clean_clades) == 0:
+            print("At " + current_clade.name + ", there is no clean child clade.")
             return
 
         # get clone specific cnv profiles

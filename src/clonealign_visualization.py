@@ -44,7 +44,7 @@ class CloneAlignVis:
 
         # if tree is not None, get cnv cell order df from tree. generate consensus data accordingly
 
-        self.cnv_cells = pd.DataFrame({'cell_id': [terminal.name for terminal in tree.get_terminals()]})
+        self.cnv_cells = pd.DataFrame({'cell_id': [terminal.name for terminal in tree.get_terminals() if terminal.name in self.cnv_matrix.columns]})
         # if we have both tree and tree-based clonealign results
         if self.clone_assign_tree is not None:
             # get clean clone assign tree results
@@ -83,15 +83,17 @@ class CloneAlignVis:
 
         # get consensus genes
         self.genes = self.get_consensus_genes()
-
+        
         self.cnv_matrix = self.cnv_matrix.reindex(self.genes['gene'].values.tolist())
         self.expr_matrix = self.expr_matrix.reindex(self.genes['gene'].values.tolist())
-
+        
         self.cnv_matrix = self.cnv_matrix.reindex(columns=self.cnv_meta['cell_id'].values.tolist())
+        print(self.cnv_matrix)
         self.expr_matrix = self.expr_matrix.reindex(columns=self.expr_meta['cell_id'].values.tolist())
 
         # subsample the matrix to keep given number of genes
         self.subsample_genes()
+
 
         # bin float expr to discrete
         self.bin_expr_matrix()
@@ -178,7 +180,7 @@ class CloneAlignVis:
 
     def bin_expr_matrix(self, n_bins=15):
         expr_array = self.expr_matrix.values.flatten()
-        # construct bins
+       # construct bins
         bin_width = (np.median(expr_array) - expr_array.min()) / int(n_bins / 2)
         min_value = np.median(expr_array) - bin_width * n_bins / 2
         bins = [min_value]
