@@ -15,6 +15,6 @@ All the dependencies will be automatically installed using the above commands
 
 #### Usage
 
-A tutorial on basic TreeAlign usage can be found in this notebook.
+Tutorials on basic TreeAlign usage can be found [here](https://github.com/AlexHelloWorld/TreeAlign/tree/master/notebooks).
 
 
