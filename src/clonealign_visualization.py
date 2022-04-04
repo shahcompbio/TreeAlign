@@ -68,6 +68,10 @@ class CloneAlignVis:
 
         # clean up all the expr meta data
         self.expr_cells = pd.DataFrame({'cell_id': self.expr_matrix.columns.values.tolist()})
+        
+        # remove clones not in tree
+        clones = set(self.cnv_clone_assign['clonealign_tree_id'].unique().tolist())
+        self.clone_assign_tree = self.clone_assign_tree[self.clone_assign_tree['clonealign_tree_id'].isin(clones)]
 
         # else order cnv cells by clone_id
         self.expr_meta = self.merge_meta(self.expr_cells, 'inner', self.expr_meta, self.clone_assign_tree,
