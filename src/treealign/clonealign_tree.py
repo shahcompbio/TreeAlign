@@ -116,6 +116,8 @@ class CloneAlignTree(CloneAlign):
         :param level: current level of the clade
         :return: None
         '''
+        print("\n\n\nStart processing ")
+        
         # return if reaches the deepest level
         if level > self.level_cutoff:
             # add to pruned_clades
@@ -141,7 +143,6 @@ class CloneAlignTree(CloneAlign):
 
         for cl in clades:
             current_terminals = [e.name for e in cl.get_terminals() if e.name in self.cnv_df.columns]
-            print("At " + cl.name + ", there are " + str(len(current_terminals)) + " terminals. ")
             if len(current_terminals) < self.min_cell_count_cnv:
                 self.pruned_clades.add(cl.name)
             else:
@@ -152,14 +153,18 @@ class CloneAlignTree(CloneAlign):
         if len(clean_clades) == 1:
             for cell in expr_cells:
                 self.clone_assign_dict[cell] = clean_clades[0].name
-            self.assign_cells_to_clade(clean_clades[0], expr_cells, level + 1)
             print("At " + current_clade.name + ", there is only one clean child clade existing.")
+            self.assign_cells_to_clade(clean_clades[0], expr_cells, level + 1)
             return
-
+            
         # if there is no clone, return
         if len(clean_clades) == 0:
             print("At " + current_clade.name + ", there is no clean child clade.")
             return
+            
+        # print the children
+        for clean_clade in clean_clades:
+            print("At " + current_clade.name + ", one of the child clade is " + clean_clade.name + " with " + str(len(current_terminals)) + " terminals. ")
 
         # get clone specific cnv profiles
         clone_cnv_list = []
@@ -190,7 +195,8 @@ class CloneAlignTree(CloneAlign):
 
         expr_input = expr_input.loc[intersect_index,]
         clone_cnv_df = clone_cnv_df.loc[intersect_index,]
-
+        
+        print("There are " + str(clone_cnv_df.shape[0]) + " genes in matrices. ")
         if clone_cnv_df.shape[0] < self.min_gene_diff:
             # add all clean clades to pruned clades
             for clade in clean_clades:
@@ -208,12 +214,14 @@ class CloneAlignTree(CloneAlign):
         print("Clonealign finished!")
 
         if 1 - none_freq < self.min_proceed_freq:
-            print("CloneAlign Tree Stops at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
+            print("CloneAlign Tree stops at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
             for cl in clean_clades:
                 self.pruned_clades.add(cl.name)
             return
         else:
             # record clone_assign
+            print("CloneAlign Tree finishes at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
+            
             self.record_clone_assign_to_dict(expr_cells, clone_assign, clean_clades)
             self.record_gene_type_score_to_dict(intersect_index, gene_type_score)
 

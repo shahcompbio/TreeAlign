@@ -269,7 +269,6 @@ class CloneAlign():
                     break
 
             losses.append(loss)
-            print('.' if i % 200 else '\n', end='')
 
         map_estimates = global_guide(cnv, expr)
 
