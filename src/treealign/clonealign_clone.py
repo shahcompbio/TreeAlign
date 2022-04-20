@@ -61,42 +61,19 @@ class CloneAlignClone(CloneAlign):
         assign cells from scRNA to clones identified in scDNA
         :return: clone_assign_df (pandas.DataFrame) and gene_type_score_df (pandas.DataFrame)
         '''
-        clone_cnv_list = []
-        mode_freq_list = []
+        terminals = []
+        expr_cells = self.expr_df.columns.values
         clones = self.clone_df["clone_id"].drop_duplicates().values
-
-        for c in clones:
-            clone_cells = self.clone_df.loc[self.clone_df["clone_id"] == c, "cell_id"].values
-            cnv_subset = self.cnv_df[clone_cells]
-            current_mode = cnv_subset.mode(1)[0]
-            clone_cnv_list.append(current_mode)
-            mode_freq_list.append(cnv_subset.eq(current_mode, axis=0).sum(axis=1).div(cnv_subset.shape[1]))
-
-        clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
-        mode_freq_df = pd.concat(mode_freq_list, axis=1)
-        clone_cnv_df.columns = clones
-
-        variance_filter = clone_cnv_df.var(1).gt(0)
-        mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
-        clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
-        self.cnv_df = self.cnv_df[variance_filter & mode_freq_filter]
-
-        # normalize cnv
-        if self.normalize_cnv:
-            cnv_correction = clone_cnv_df[clone_cnv_df > 0].min(axis=1)
-            clone_cnv_df = clone_cnv_df.div(cnv_correction, axis=0)
-            self.cnv_df = self.cnv_df.div(cnv_correction, axis=0)
-
-        expr_input = self.expr_df[self.expr_df.mean(1) > 0]
-
-        intersect_index = clone_cnv_df.index.intersection(expr_input.index)
-
-        expr_input = expr_input.loc[intersect_index,]
-        clone_cnv_df = clone_cnv_df.loc[intersect_index,]
-
-        # reorder self.cnv_df and self.expr_df
-        self.expr_df = self.expr_df.loc[intersect_index, ]
-        self.cnv_df = self.cnv_df.loc[intersect_index, ]
+        
+        for clone in clones:
+            terminal = self.clone_df.loc[self.clone_df["clone_id"] == c, "cell_id"].values
+            terminals.append(terminal)
+        
+        # construct total copy number input
+        expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
+        
+        hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)        
+        
         # run clonealign
         clone_count = clone_cnv_df.shape[1]
 

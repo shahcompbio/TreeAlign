@@ -9,11 +9,13 @@ from .clonealign import CloneAlign
 
 class CloneAlignTree(CloneAlign):
 
-    def __init__(self, expr, cnv, tree, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=10,
-                 min_cell_count_expr=20, min_cell_count_cnv=20, min_gene_diff=300, level_cutoff=10,
-                 min_proceed_freq=0.7,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,min_consensus_gene_freq=0.8,
-                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5):
+    def __init__(self, tree, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
+                 normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.8,
+                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
+                 record_input_output=False,
+                 min_cell_count_expr=20, min_cell_count_cnv=20, min_gene_diff=100, min_snp_diff=100, level_cutoff=10,
+                 min_proceed_freq=0.7):
         '''
         initialize CloneAlignTree object
         :param expr: expr read count matrix. row is gene, column is cell. (pandas.DataFrame)
@@ -37,8 +39,11 @@ class CloneAlignTree(CloneAlign):
         :param max_iter: max number of iterations of elbo optimization during inference. (int)
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
-        CloneAlign.__init__(self, expr, cnv, normalize_cnv, cnv_cutoff, model_select, repeat, min_clone_assign_prob,
-                            min_clone_assign_freq, min_consensus_gene_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
+        CloneAlign.__init__(self, tree, expr, cnv, hscn, snv_allele, snv, 
+                            normalize_cnv, cnv_cutoff, infer_s_score, infer_b_allele, 
+                            repeat, min_clone_assign_prob, min_clone_assign_freq, 
+                            min_consensus_gene_freq, max_temp, min_temp, anneal_rate, 
+                            learning_rate, max_iter, rel_tol, record_input_output)
 
         self.tree = tree
         self.tree.ladderize()
@@ -49,7 +54,7 @@ class CloneAlignTree(CloneAlign):
         self.min_cell_count_expr = min_cell_count_expr
         self.min_cell_count_cnv = min_cell_count_cnv
         self.min_gene_diff = min_gene_diff
-        self.min_consensus_gene_freq = min_consensus_gene_freq
+        self.min_snp_diff = min_snp_diff
         self.level_cutoff = level_cutoff
         self.min_proceed_freq = min_proceed_freq
 
@@ -78,22 +83,21 @@ class CloneAlignTree(CloneAlign):
             if not np.isnan(clone_assign[i]):
                 self.clone_assign_dict[expr_cells[i]] = clean_clades[int(clone_assign[i])].name
 
-    def record_gene_type_score_to_dict(self, gene_indices, gene_type_score):
+    def record_param_to_dict(self, param_dict, indices, params):
         '''
-        Update gene_type_scores in self.gene_type_score_dict
-        :param gene_indices: gene names (list[str])
+        Update params in params
+        :param indices: gene names (list[str])
         :param gene_type_score: mean gene_type_score across runs (pandas.Series)
         :return:
         '''
-        if gene_type_score is None:
+        if params is None:
             return
-        for i in range(gene_type_score.shape[0]):
-            if gene_indices[i] not in self.gene_type_score_dict:
-                self.gene_type_score_dict[gene_indices[i]] = gene_type_score[i]
-            else:
-                self.gene_type_score_dict[gene_indices[i]] = max(self.gene_type_score_dict[gene_indices[i]],
-                                                                 gene_type_score[i])
-
+        for i in range(params.shape[0]):
+            if indices[i] not in param_dict:
+                param_dict[indices[i]] = []
+            param_dict[indices[i]] = params[i]
+    
+    
     def assign_cells_to_tree(self):
         '''
         assign cells to Phylo tree
@@ -107,6 +111,7 @@ class CloneAlignTree(CloneAlign):
         self.assign_cells_to_clade(self.tree.clade, list(self.expr_df.columns), 0)
 
         return self.generate_output()
+      
 
     def assign_cells_to_clade(self, current_clade, expr_cells, level):
         '''
@@ -165,51 +170,46 @@ class CloneAlignTree(CloneAlign):
         # print the children
         for clean_clade in clean_clades:
             print("At " + current_clade.name + ", one of the child clade is " + clean_clade.name + " with " + str(len(current_terminals)) + " terminals. ")
-
-        # get clone specific cnv profiles
-        clone_cnv_list = []
-        mode_freq_list = []
-        for terminal in terminals:
-            cnv_subset = self.cnv_df[terminal]
-            current_mode = cnv_subset.mode(1)[0]
-            clone_cnv_list.append(current_mode)
-            mode_freq_list.append(cnv_subset.eq(current_mode, axis=0).sum(axis=1).div(cnv_subset.shape[1]))
-
-        # concatenate clone_cnv_list
-        clone_cnv_df = pd.concat(clone_cnv_list, axis=1)
-        mode_freq_df = pd.concat(mode_freq_list, axis=1)
-
-        # remove non-variable genes
-        variance_filter = clone_cnv_df.var(1).gt(0)
-        mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_gene_freq)
-        clone_cnv_df = clone_cnv_df[variance_filter & mode_freq_filter]
-        # cnv normalization
-        if self.normalize_cnv:
-            clone_cnv_df = clone_cnv_df.div(clone_cnv_df[clone_cnv_df > 0].min(axis=1), axis=0)
-
-
-        expr_input = self.expr_df[expr_cells]
-        expr_input = expr_input[expr_input.mean(1) > 0]
-
-        intersect_index = clone_cnv_df.index.intersection(expr_input.index)
-
-        expr_input = expr_input.loc[intersect_index,]
-        clone_cnv_df = clone_cnv_df.loc[intersect_index,]
+            
+            
+        # construct total copy number input
+        expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
+        
+        hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)
         
         print("There are " + str(clone_cnv_df.shape[0]) + " genes in matrices. ")
-        if clone_cnv_df.shape[0] < self.min_gene_diff:
+        if clone_cnv_df.shape[0] < self.min_gene_diff and hscn_input.shape[0] < self.min_snp_diff:
             # add all clean clades to pruned clades
             for clade in clean_clades:
                 self.pruned_clades.add(clade.name)
             print("cnv gene count less than self.min_gene_diff: " + str(clone_cnv_df.shape[0]))
+            print("snp count less than self.min_snp_diff: "  + str(hscn_input.shape[0]))
             return
 
         # run clonealign
         print("Start run clonealign for clade: " + current_clade.name)
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
-        none_freq, clone_assign, gene_type_score, clone_assign_df, gene_type_score_df = self.run_clonealign_pyro_repeat(
-            clone_cnv_df, expr_input)
+        
+        # record input
+        if self.record_input_output:
+            self.params_dict[current_clade.name] = dict()
+            self.params_dict[current_clade.name]['input'] = dict()
+            self.params_dict[current_clade.name]['input']['cnv'] = clone_cnv_df
+            self.params_dict[current_clade.name]['input']['expr'] = expr_input
+            self.params_dict[current_clade.name]['input']['hscn'] = hscn_input
+            self.params_dict[current_clade.name]['input']['snv_allele'] = snv_allele_input
+            self.params_dict[current_clade.name]['input']['snv'] = snv_input
+        
+        none_freq, clone_assign, clone_assign_df, params_dict = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input, hscn_input, snv_allele_input, snv_input)
+        
+        if self.record_input_output:
+            self.params_dict[current_clade.name]['output'] = dict()
+            self.params_dict[current_clade.name]['output']['none_freq'] = none_freq
+            self.params_dict[current_clade.name]['output']['clone_assign'] = clone_assign
+            self.params_dict[current_clade.name]['output']['clone_assign_df'] = clone_assign_df
+            self.params_dict[current_clade.name]['output']['params_dict'] = params_dict
+            
 
         print("Clonealign finished!")
 
@@ -223,7 +223,12 @@ class CloneAlignTree(CloneAlign):
             print("CloneAlign Tree finishes at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
             
             self.record_clone_assign_to_dict(expr_cells, clone_assign, clean_clades)
-            self.record_gene_type_score_to_dict(intersect_index, gene_type_score)
+            if self.infer_s_score:
+                self.record_param_to_dict(self.gene_type_score_dict, clone_cnv_df.index, params_dict['mean_gene_type_score'])
+            
+            if self.infer_b_allele:
+                self.record_param_to_dict(self.allele_assign_prob_dict, hscn_df.index, params_dict['mean_allele_assign_prob'])
+                
 
             for i in range(len(clean_clades)):
                 new_expr_cells = [expr_cells[k] for k in range(len(expr_cells)) if clone_assign[k] == i]
