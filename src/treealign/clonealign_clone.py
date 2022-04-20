@@ -11,7 +11,7 @@ class CloneAlignClone(CloneAlign):
 
     def __init__(self, clone, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
                  normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.8,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,min_consensus_snv_freq=0.6,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
                  record_input_output=False):
         '''
@@ -34,7 +34,7 @@ class CloneAlignClone(CloneAlign):
         '''
         CloneAlign.__init__(self, tree, expr, cnv, hscn, snv_allele, snv, 
                             normalize_cnv, cnv_cutoff, infer_s_score, infer_b_allele, 
-                            repeat, min_clone_assign_prob, min_clone_assign_freq, 
+                            repeat, min_clone_assign_prob, min_clone_assign_freq, min_consensus_snv_freq,
                             min_consensus_gene_freq, max_temp, min_temp, anneal_rate, 
                             learning_rate, max_iter, rel_tol, record_input_output)
 
@@ -74,8 +74,10 @@ class CloneAlignClone(CloneAlign):
         
         # construct total copy number input
         expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
-        
+        # construct allele specific input
         hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)        
+        # make columns consistent
+        self.make_columns_consistent(expr_input, snv_allele_input, snv_input)
         
         # run clonealign
         clone_count = clone_cnv_df.shape[1]

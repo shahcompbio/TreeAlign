@@ -75,6 +75,8 @@ class CloneAlign():
         return
     
     def construct_total_copy_number_input(self, terminals, expr_cells):
+        if self.cnv_df == None or self.expr_df == None:
+            return None, None
         # get clone specific cnv profiles
         clone_cnv_list = []
         mode_freq_list = []
@@ -109,7 +111,55 @@ class CloneAlign():
     
     
     def construct_allele_specific_input(self, terminals, expr_cells):
-        return
+        if self.hscn_df == None or self.snv_allele_df == None or self.snv_df == None:
+            return None, None, None
+          
+        clone_hscn_list = []
+        mode_freq_list = []
+        
+        for terminal in terminals:
+            hscn_subset = self.hscn_df[terminal]
+            current_mode = hscn_subset.mode(1)[0]
+            clone_hscn_list.append(current_mode)
+            mode_freq_list.append(hscn_subset.eq(current_mode, axis=0).sum(axis=1).div(hscn_subset.shape[1]))
+        
+        clone_hscn_df = pd.concat(clone_hscn_list, axis=1)
+        mode_freq_df = pd.concat(mode_freq_list, axis=1)
+        
+        variance_filter = clone_hscn_df.var(1).gt(0)
+        mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_snv_freq)
+        clone_hscn_df = clone_hscn_df[variance_filter & mode_freq_filter]
+        
+        snv = self.snv_df[expr_cells]
+        snv_allele = self.snv_allele_df[expr_cells]
+        
+        intersect_index = clone_hscn_df.index & snv.index & snv_allele.index
+        
+        clone_hscn_df = clone_hscn_df.loc[intersect_index, ]
+        snv = snv.loc[intersect_index, ]
+        snv_allele = snv_allele.loc[intersect_index, ]
+        
+        return clone_hscn_df, snv_allele, snv
+    
+    # inplace method
+    def averge_param_dict(self, param_dict):
+        if param_dict != None:
+            for key in param_dict:
+                param_dict[key] = mean(param_dict[key])
+    
+    # inplace method            
+    def max_param_dict(self, param_dict):
+        if param_dict != None:
+            for key in param_dict:
+                param_dict[key] = max(param_dict[key])
+    
+    # inplace method
+    def make_columns_consistent(self, *args):
+        intersect_columns = args[0].columns
+        for arg in args:
+            intersect_columns = intersect_columns.intersection(arg.columns)
+        for arg in args:
+            arg.drop(columns=[col for col in arg if col not in intersect_columns], inplace=True)
 
     def generate_output(self):
         '''
@@ -118,14 +168,25 @@ class CloneAlign():
         '''
         clone_assign_df = pd.DataFrame.from_dict(self.clone_assign_dict.items())
         clone_assign_df.rename(columns={0: "cell_id", 1: "clone_id"}, inplace=True)
-        gene_type_score_df = pd.DataFrame.from_dict(self.gene_type_score_dict.items())
-        gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"}, inplace=True)
+        if self.gene_type_score_dict == None:
+            gene_type_score_df = None
+        elses:
+            self.average_param_dict(self.gene_type_score_dict)
+            gene_type_score_df = pd.DataFrame.from_dict(self.gene_type_score_dict.items())
+            gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"}, inplace=True)
+        
+        if self.allele_assign_prob_dict == None:
+            allele_assign_prob_df = None
+        else:
+            self.average_param_dict(self.allele_assign_prob_dict)
+            allele_assign_prob_df = pd.DataFrame.from_dict(self.allele_assign_prob_dict.items())
+            allele_assign_prob_df.rename(columns={0: "snp", 2: "allele_assign_prob"}, inplace=True)
 
-        return clone_assign_df, gene_type_score_df
+        return clone_assign_df, gene_type_score_df, allele_assign_prob_df
 
     def __init__(self, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
                  normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.8,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,min_consensus_snv_freq=0.6,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
                  record_input_output=False):
         '''
@@ -157,6 +218,7 @@ class CloneAlign():
         self.cnv_cutoff = cnv_cutoff
 
         self.min_consensus_gene_freq = min_consensus_gene_freq
+        self.min_consensus_snv_freq = min_consensus_snv_freq
         self.infer_s_score = infer_s_score
         self.infer_b_allele = infer_b_allele
         self.repeat = repeat
