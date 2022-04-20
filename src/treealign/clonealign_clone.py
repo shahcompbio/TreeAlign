@@ -9,10 +9,11 @@ from .clonealign import CloneAlign
 
 class CloneAlignClone(CloneAlign):
 
-    def __init__(self, expr, cnv, clone, normalize_cnv=True, cnv_cutoff=10, model_select="gene", repeat=10,
-                 min_clone_cell_count=20,
-                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7,min_consensus_gene_freq=0.2,
-                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5):
+    def __init__(self, clone, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
+                 normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
+                 min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.8,
+                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
+                 record_input_output=False):
         '''
         initialize CloneAlignClone object
         :param expr: expr read count matrix. row is gene, column is cell. (pandas.DataFrame)
@@ -31,8 +32,11 @@ class CloneAlignClone(CloneAlign):
         :param max_iter: max number of iterations of elbo optimization during inference. (int)
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
-        CloneAlign.__init__(self, expr, cnv, normalize_cnv, cnv_cutoff, model_select, repeat, min_clone_assign_prob,
-                            min_clone_assign_freq, min_consensus_gene_freq, max_temp, min_temp, anneal_rate, learning_rate, max_iter, rel_tol)
+        CloneAlign.__init__(self, tree, expr, cnv, hscn, snv_allele, snv, 
+                            normalize_cnv, cnv_cutoff, infer_s_score, infer_b_allele, 
+                            repeat, min_clone_assign_prob, min_clone_assign_freq, 
+                            min_consensus_gene_freq, max_temp, min_temp, anneal_rate, 
+                            learning_rate, max_iter, rel_tol, record_input_output)
 
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
@@ -49,7 +53,6 @@ class CloneAlignClone(CloneAlign):
             raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
 
         self.clone_assign_df = None
-        self.gene_type_score_df = None
 
     def generate_output(self):
         summarized_clone_assign_df, summarized_gene_type_score_df = CloneAlign.generate_output(self)
@@ -76,17 +79,33 @@ class CloneAlignClone(CloneAlign):
         
         # run clonealign
         clone_count = clone_cnv_df.shape[1]
-
-        self.clone_cnv_df = clone_cnv_df
+        
+        if(clone_cnv_df.shape[0] == 0):
+            raise ValueError('No valid genes exist in the cnv matrix after filtering. Maybe loose the filtering criteria? or the cnv profiles of clones are too similar.')
+        
         print(f'Start run clonealign for {clone_count} clones:')
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
 
-        if(clone_cnv_df.shape[0] == 0):
-            raise ValueError('No valid genes exist in the cnv matrix after filtering. Maybe loose the filtering criteria? or the cnv profiles of clones are too similar.')
+        # record input
+        if self.record_input_output:
+            self.params_dict = dict()
+            self.params_dict['input'] = dict()
+            self.params_dict['input']['cnv'] = clone_cnv_df
+            self.params_dict['input']['expr'] = expr_input
+            self.params_dict['input']['hscn'] = hscn_input
+            self.params_dict['input']['snv_allele'] = snv_allele_input
+            self.params_dict['input']['snv'] = snv_input
         
-
-        none_freq, clone_assign, gene_type_score, self.clone_assign_df, self.gene_type_score_df = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input)
+        none_freq, clone_assign, clone_assign_df, params_dict = self.run_clonealign_pyro_repeat(clone_cnv_df, expr_input, hscn_input, snv_allele_input, snv_input)
+        
+        if self.record_input_output:
+            self.params_dict['output'] = dict()
+            self.params_dict['output']['none_freq'] = none_freq
+            self.params_dict['output']['clone_assign'] = clone_assign
+            self.params_dict['output']['clone_assign_df'] = clone_assign_df
+            self.params_dict['output']['params_dict'] = params_dict
+            
 
         clones_dict = dict()
         for i in range(len(clones)):
@@ -94,8 +113,6 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_assign_df.replace(clones_dict, inplace=True)
         self.clone_assign_df.index = expr_input.columns.values
-        if self.gene_type_score_df is not None:
-            self.gene_type_score_df.index = expr_input.index.values
 
         # record clone_assign
         for i in range(expr_input.shape[1]):
@@ -105,8 +122,8 @@ class CloneAlignClone(CloneAlign):
                 self.clone_assign_dict[expr_input.columns.values[i]] = clones[int(clone_assign.values[i])]
 
         # record gene_type_score
-        if gene_type_score is not None:
+        if self.infer_gene_type:
             for i in range(expr_input.shape[0]):
-                self.gene_type_score_dict[expr_input.index.values[i]] = gene_type_score.values[i]
+                self.gene_type_score_dict[expr_input.index.values[i]] = [params_dict['mean_gene_type_score'][i]]
 
-        return self.generate_output()
+        return
