@@ -53,8 +53,6 @@ class CloneAlignClone(CloneAlign):
         if self.clone_df.shape[1] <= 1:
             raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
 
-        self.clone_assign_df = None
-
 
     def assign_cells_to_clones(self):
         '''

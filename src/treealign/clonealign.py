@@ -166,23 +166,26 @@ class CloneAlign():
         generate clone_assign_df and gene_type_score_df
         :return: clonealign output (pandas.DataFrame)
         '''
-        clone_assign_df = pd.DataFrame.from_dict(self.clone_assign_dict.items())
-        clone_assign_df.rename(columns={0: "cell_id", 1: "clone_id"}, inplace=True)
-        if self.gene_type_score_dict is None:
-            gene_type_score_df = None
-        else:
-            self.average_param_dict(self.gene_type_score_dict)
-            gene_type_score_df = pd.DataFrame.from_dict(self.gene_type_score_dict.items())
-            gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"}, inplace=True)
+        if self.clone_assign_df is None:
+            self.clone_assign_df = pd.DataFrame.from_dict(self.clone_assign_dict.items())
+            self.clone_assign_df.rename(columns={0: "cell_id", 1: "clone_id"}, inplace=True)
+        if self.gene_type_score_df is None:
+            if self.gene_type_score_dict is None:
+                self.gene_type_score_df = None
+            else:
+                self.average_param_dict(self.gene_type_score_dict)
+                self.gene_type_score_df = pd.DataFrame.from_dict(self.gene_type_score_dict.items())
+                self.gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"}, inplace=True)
         
-        if self.allele_assign_prob_dict is None:
-            allele_assign_prob_df = None
-        else:
-            self.average_param_dict(self.allele_assign_prob_dict)
-            allele_assign_prob_df = pd.DataFrame.from_dict(self.allele_assign_prob_dict.items())
-            allele_assign_prob_df.rename(columns={0: "snp", 1: "allele_assign_prob"}, inplace=True)
+        if self.allele_assign_prob_df is None:
+            if self.allele_assign_prob_dict is None:
+                self.allele_assign_prob_df = None
+            else:
+                self.average_param_dict(self.allele_assign_prob_dict)
+                self.allele_assign_prob_df = pd.DataFrame.from_dict(self.allele_assign_prob_dict.items())
+                self.allele_assign_prob_df.rename(columns={0: "snp", 1: "allele_assign_prob"}, inplace=True)
 
-        return clone_assign_df, gene_type_score_df, allele_assign_prob_df
+        return self.clone_assign_df, self.gene_type_score_df, self.allele_assign_prob_df
 
     def __init__(self, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
                  normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
