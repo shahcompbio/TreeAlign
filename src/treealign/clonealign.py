@@ -42,8 +42,8 @@ class CloneAlign():
         :return: None
         '''
         # remove genes that are not in the cnv region
-        contains_total_copy_data = self.cnv_df != None or self.expr_df != None
-        contains_allele_specific_data = self.hscn_df != None or self.snv_allele_df != None or self.snv_df != None
+        contains_total_copy_data = self.cnv_df is not None and self.expr_df is not None
+        contains_allele_specific_data = self.hscn_df is not None and self.snv_allele_df is not None and self.snv_df is not None
         
         if contains_total_copy_data:
             self.cnv_df = self.cnv_df[self.cnv_df.var(1) > 0]
@@ -68,14 +68,14 @@ class CloneAlign():
         if contains_total_copy_data and contains_allele_specific_data:
             intersect_cells = self.expr_df.columns & self.snv_allele_df.columns & self.snv_df.columns
             
-            self.expr_df = self.expr_df.loc[, intersect_cells]
-            self.snv_allele_df = self.snv_allele_df.loc[, intersect_cells]
-            self.snv_df = self.snv_df.loc[, intersect_cells]
+            self.expr_df = self.expr_df[intersect_cells]
+            self.snv_allele_df = self.snv_allele_df[intersect_cells]
+            self.snv_df = self.snv_df[intersect_cells]
         
         return
     
     def construct_total_copy_number_input(self, terminals, expr_cells):
-        if self.cnv_df == None or self.expr_df == None:
+        if self.cnv_df is None or self.expr_df is None:
             return None, None
         # get clone specific cnv profiles
         clone_cnv_list = []
@@ -111,7 +111,7 @@ class CloneAlign():
     
     
     def construct_allele_specific_input(self, terminals, expr_cells):
-        if self.hscn_df == None or self.snv_allele_df == None or self.snv_df == None:
+        if self.hscn_df is None or self.snv_allele_df is None or self.snv_df is None:
             return None, None, None
           
         clone_hscn_list = []
@@ -142,14 +142,14 @@ class CloneAlign():
         return clone_hscn_df, snv_allele, snv
     
     # inplace method
-    def averge_param_dict(self, param_dict):
-        if param_dict != None:
+    def average_param_dict(self, param_dict):
+        if param_dict is not None:
             for key in param_dict:
-                param_dict[key] = mean(param_dict[key])
+                param_dict[key] = sum(param_dict[key])/len(param_dict[key])
     
     # inplace method            
     def max_param_dict(self, param_dict):
-        if param_dict != None:
+        if param_dict is not None:
             for key in param_dict:
                 param_dict[key] = max(param_dict[key])
     
@@ -168,19 +168,19 @@ class CloneAlign():
         '''
         clone_assign_df = pd.DataFrame.from_dict(self.clone_assign_dict.items())
         clone_assign_df.rename(columns={0: "cell_id", 1: "clone_id"}, inplace=True)
-        if self.gene_type_score_dict == None:
+        if self.gene_type_score_dict is None:
             gene_type_score_df = None
-        elses:
+        else:
             self.average_param_dict(self.gene_type_score_dict)
             gene_type_score_df = pd.DataFrame.from_dict(self.gene_type_score_dict.items())
             gene_type_score_df.rename(columns={0: "gene", 1: "gene_type_score"}, inplace=True)
         
-        if self.allele_assign_prob_dict == None:
+        if self.allele_assign_prob_dict is None:
             allele_assign_prob_df = None
         else:
             self.average_param_dict(self.allele_assign_prob_dict)
             allele_assign_prob_df = pd.DataFrame.from_dict(self.allele_assign_prob_dict.items())
-            allele_assign_prob_df.rename(columns={0: "snp", 2: "allele_assign_prob"}, inplace=True)
+            allele_assign_prob_df.rename(columns={0: "snp", 1: "allele_assign_prob"}, inplace=True)
 
         return clone_assign_df, gene_type_score_df, allele_assign_prob_df
 
@@ -265,12 +265,12 @@ class CloneAlign():
         num_of_genes = 0
         hscn_complement = None
                
-        if cnv != None and expr != None:
+        if cnv is not None and expr is not None:
             num_of_clones = len(cnv)
             num_of_cells = len(expr)
             num_of_genes = len(expr[0])
 
-        if hscn != None and snv_allele != None and snv != None:
+        if hscn is not None and snv_allele is not None and snv is not None:
             num_of_snps = len(hscn[0])
             hscn_complement = 1 - hscn
 
@@ -317,18 +317,17 @@ class CloneAlign():
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
             # construct expected_expr
-            if cnv != None and expr != None:
+            if cnv is not None and expr is not None:
                 # draw psi from Normal
                 psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))                
                 if infer_s_score:
-                    expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type[:, 0] + per_copy_expr * gene_type[:, 1]) * 
-                    torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
+                    expected_expr = (per_copy_expr * Vindex(cnv)[clone_assign] * gene_type[:, 0] + per_copy_expr * gene_type[:, 1]) * torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
                 else:
                     expected_expr = per_copy_expr * Vindex(cnv)[clone_assign] * torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
                 # draw expr from Multinomial
                 pyro.sample('cnv', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
 
-            if hscn != None and snv_allele != None and snv != None:
+            if hscn is not None and snv_allele is not None and snv is not None:
                 if infer_b_allele:
                     real_hscn = Vindex(hscn)[clone_assign] * allele_assign[:, 0] + Vindex(hscn_complement)[clone_assign] * allele_assign[:, 1]
                 else:
@@ -378,7 +377,7 @@ class CloneAlign():
         results = dict()
         for entry in map_estimates:
           entry_name = entry[7:]
-          results[entry_name] = pd.DataFrame(map_estimates[entry])
+          results[entry_name] = pd.DataFrame(map_estimates[entry].data.numpy())
     
         return results
 
@@ -397,13 +396,13 @@ class CloneAlign():
         expr = torch.transpose(expr, 0, 1)
         
         hscn = torch.tensor(hscn_df.values, dtype=torch.float64)
-        hscn = torch.transpose(hscn)
+        hscn = torch.transpose(hscn, 0, 1)
         
         snv_allele = torch.tensor(snv_allele_df.values, dtype=torch.float64)
-        snv_allele = torch.transpose(snv_allele)
+        snv_allele = torch.transpose(snv_allele, 0, 1)
         
         snv = torch.tensor(snv_df.values, dtype=torch.float64)
-        snv = torch.transpose(snv)
+        snv = torch.transpose(snv, 0, 1)
 
         clone_assign_list = []
         other_params = dict()
@@ -424,10 +423,12 @@ class CloneAlign():
                   other_params[param_name] = []
                 other_params[param_name].append(current_results[param_name].iloc[:, 0])
                   
-        
+        mean_params = dict()
         for param_name in other_params:
-            other_params[param_name] = pd.concat(other_params[param_name], axix=1)
-            other_params['mean_' + param_name] = other_params[param_name].mean(1)
+            other_params[param_name] = pd.concat(other_params[param_name], axis=1)
+            mean_params['mean_' + param_name] = other_params[param_name].mean(1)
+            
+        other_params.update(mean_params)
             
         clone_assign = pd.concat(clone_assign_list, axis=1)
         clone_assign_max = clone_assign.mode(1, dropna=False)[0]

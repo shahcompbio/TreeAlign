@@ -39,7 +39,7 @@ class CloneAlignTree(CloneAlign):
         :param max_iter: max number of iterations of elbo optimization during inference. (int)
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
-        CloneAlign.__init__(self, tree, expr, cnv, hscn, snv_allele, snv, 
+        CloneAlign.__init__(self, expr, cnv, hscn, snv_allele, snv, 
                             normalize_cnv, cnv_cutoff, infer_s_score, infer_b_allele, 
                             repeat, min_clone_assign_prob, min_clone_assign_freq, min_consensus_snv_freq,
                             min_consensus_gene_freq, max_temp, min_temp, anneal_rate, 
@@ -95,7 +95,7 @@ class CloneAlignTree(CloneAlign):
         for i in range(params.shape[0]):
             if indices[i] not in param_dict:
                 param_dict[indices[i]] = []
-            param_dict[indices[i]] = params[i]
+            param_dict[indices[i]].append(params[i])
     
     
     def assign_cells_to_tree(self):
@@ -110,7 +110,7 @@ class CloneAlignTree(CloneAlign):
 
         self.assign_cells_to_clade(self.tree.clade, list(self.expr_df.columns), 0)
 
-        return self.generate_output()
+        return
       
 
     def assign_cells_to_clade(self, current_clade, expr_cells, level):
@@ -169,7 +169,7 @@ class CloneAlignTree(CloneAlign):
             
         # print the children
         for clean_clade in clean_clades:
-            print("At " + current_clade.name + ", one of the child clade is " + clean_clade.name + " with " + str(len(current_terminals)) + " terminals. ")
+            print("At " + current_clade.name + ", one of the child clade is " + clean_clade.name + " with " + str(len(clean_clade.get_terminals())) + " terminals. ")
             
             
         # construct total copy number input
@@ -192,6 +192,8 @@ class CloneAlignTree(CloneAlign):
         print("Start run clonealign for clade: " + current_clade.name)
         print("cnv gene count: " + str(clone_cnv_df.shape[0]))
         print("expr cell count: " + str(expr_input.shape[1]))
+        print("hscn snp count: " + str(hscn_input.shape[0]))
+        print("snv allele matrix cell count: " + str(snv_allele_input.shape[1]))
         
         # record input
         if self.record_input_output:
@@ -229,7 +231,7 @@ class CloneAlignTree(CloneAlign):
                 self.record_param_to_dict(self.gene_type_score_dict, clone_cnv_df.index, params_dict['mean_gene_type_score'])
             
             if self.infer_b_allele:
-                self.record_param_to_dict(self.allele_assign_prob_dict, hscn_df.index, params_dict['mean_allele_assign_prob'])
+                self.record_param_to_dict(self.allele_assign_prob_dict, hscn_input.index, params_dict['mean_allele_assign_prob'])
                 
 
             for i in range(len(clean_clades)):

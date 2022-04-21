@@ -32,7 +32,7 @@ class CloneAlignClone(CloneAlign):
         :param max_iter: max number of iterations of elbo optimization during inference. (int)
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         '''
-        CloneAlign.__init__(self, tree, expr, cnv, hscn, snv_allele, snv, 
+        CloneAlign.__init__(self, expr, cnv, hscn, snv_allele, snv, 
                             normalize_cnv, cnv_cutoff, infer_s_score, infer_b_allele, 
                             repeat, min_clone_assign_prob, min_clone_assign_freq, min_consensus_snv_freq,
                             min_consensus_gene_freq, max_temp, min_temp, anneal_rate, 
@@ -127,5 +127,9 @@ class CloneAlignClone(CloneAlign):
         if self.infer_gene_type:
             for i in range(expr_input.shape[0]):
                 self.gene_type_score_dict[expr_input.index.values[i]] = [params_dict['mean_gene_type_score'][i]]
+                
+        if self.infern_b_allele:
+            for i in range(hscn_input.shape[0]):
+                self.allele_assign_prob_dict[hscn_input.index.values[i]] = [params_dict['mean_allele_assign_prob'][i]]
 
         return
