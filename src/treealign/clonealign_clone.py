@@ -13,7 +13,8 @@ class CloneAlignClone(CloneAlign):
                  normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
                  min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,min_consensus_snv_freq=0.6,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
-                 record_input_output=False):
+                 record_input_output=False, 
+                 min_clone_cell_count=10):
         '''
         initialize CloneAlignClone object
         :param expr: expr read count matrix. row is gene, column is cell. (pandas.DataFrame)
@@ -54,10 +55,6 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_assign_df = None
 
-    def generate_output(self):
-        summarized_clone_assign_df, summarized_gene_type_score_df = CloneAlign.generate_output(self)
-        return summarized_clone_assign_df, summarized_gene_type_score_df, self.clone_assign_df, self.gene_type_score_df
-
 
     def assign_cells_to_clones(self):
         '''
@@ -69,7 +66,7 @@ class CloneAlignClone(CloneAlign):
         clones = self.clone_df["clone_id"].drop_duplicates().values
         
         for clone in clones:
-            terminal = self.clone_df.loc[self.clone_df["clone_id"] == c, "cell_id"].values
+            terminal = self.clone_df.loc[self.clone_df["clone_id"] == clone, "cell_id"].values
             terminals.append(terminal)
         
         # construct total copy number input
@@ -109,13 +106,6 @@ class CloneAlignClone(CloneAlign):
             self.params_dict['output']['params_dict'] = params_dict
             
 
-        clones_dict = dict()
-        for i in range(len(clones)):
-            clones_dict[float(i)] = clones[i]
-
-        self.clone_assign_df.replace(clones_dict, inplace=True)
-        self.clone_assign_df.index = expr_input.columns.values
-
         # record clone_assign
         for i in range(expr_input.shape[1]):
             if np.isnan(clone_assign.values[i]):
@@ -124,11 +114,10 @@ class CloneAlignClone(CloneAlign):
                 self.clone_assign_dict[expr_input.columns.values[i]] = clones[int(clone_assign.values[i])]
 
         # record gene_type_score
-        if self.infer_gene_type:
+        if self.infer_s_score:
             for i in range(expr_input.shape[0]):
                 self.gene_type_score_dict[expr_input.index.values[i]] = [params_dict['mean_gene_type_score'][i]]
-                
-        if self.infern_b_allele:
+        if self.infer_b_allele:
             for i in range(hscn_input.shape[0]):
                 self.allele_assign_prob_dict[hscn_input.index.values[i]] = [params_dict['mean_allele_assign_prob'][i]]
 
