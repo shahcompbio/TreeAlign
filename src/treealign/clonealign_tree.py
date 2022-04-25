@@ -104,11 +104,14 @@ class CloneAlignTree(CloneAlign):
         :return: clone_assign_df (pandas.DataFrame) and gene_type_score_df (pandas.DataFrame)
         '''
         # output
-        self.clone_assign_dict = dict()
-        self.gene_type_score_dict = dict()
         self.pruned_clades = set()
+        
+        if self.expr_df is not None:
+            cells = list(self.expr_df.columns)
+        else:
+            cells = list(self.snv_df.columns)
 
-        self.assign_cells_to_clade(self.tree.clade, list(self.expr_df.columns), 0)
+        self.assign_cells_to_clade(self.tree.clade, cells, 0)
 
         return
       
@@ -147,7 +150,7 @@ class CloneAlignTree(CloneAlign):
         clean_clades = []
 
         for cl in clades:
-            current_terminals = [e.name for e in cl.get_terminals() if e.name in self.cnv_df.columns]
+            current_terminals = [e.name for e in cl.get_terminals()]
             if len(current_terminals) < self.min_cell_count_cnv:
                 self.pruned_clades.add(cl.name)
             else:
@@ -177,23 +180,40 @@ class CloneAlignTree(CloneAlign):
         # construct allele specific input
         hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)
         # make columns consistent
-        self.make_columns_consistent(expr_input, snv_allele_input, snv_input)
+        self.make_columns_consistent(expr_input, snv_allele_input, snv_input)     
         
-        print("There are " + str(clone_cnv_df.shape[0]) + " genes in matrices. ")
-        if clone_cnv_df.shape[0] < self.min_gene_diff and hscn_input.shape[0] < self.min_snp_diff:
+        has_allele_specific_data = hscn_input is not None and snv_allele_input is not None and snv_input is not None
+        has_total_copy_number_data = expr_input is not None and clone_cnv_df is not None   
+        
+        if has_total_copy_number_data:
+            gene_count = clone_cnv_df.shape[0]
+        else:
+            gene_count = 0
+            
+        if has_allele_specific_data:
+            snp_count = hscn_input.shape[0]
+        else:
+            snp_count = 0
+        
+        print("There are " + str(gene_count) + " genes in matrices. ")
+        if gene_count < self.min_gene_diff and snp_count < self.min_snp_diff:
             # add all clean clades to pruned clades
             for clade in clean_clades:
                 self.pruned_clades.add(clade.name)
-            print("cnv gene count less than self.min_gene_diff: " + str(clone_cnv_df.shape[0]))
-            print("snp count less than self.min_snp_diff: "  + str(hscn_input.shape[0]))
+            print("cnv gene count less than self.min_gene_diff: " + str(gene_count))
+            print("snp count less than self.min_snp_diff: "  + str(snp_count))
             return
+
 
         # run clonealign
         print("Start run clonealign for clade: " + current_clade.name)
-        print("cnv gene count: " + str(clone_cnv_df.shape[0]))
-        print("expr cell count: " + str(expr_input.shape[1]))
-        print("hscn snp count: " + str(hscn_input.shape[0]))
-        print("snv allele matrix cell count: " + str(snv_allele_input.shape[1]))
+        if has_total_copy_number_data:
+            print("cnv gene count: " + str(clone_cnv_df.shape[0]))
+            print("expr cell count: " + str(expr_input.shape[1]))
+            
+        if has_allele_specific_data:
+            print("hscn snp count: " + str(hscn_input.shape[0]))
+            print("snv allele matrix cell count: " + str(snv_allele_input.shape[1]))
         
         # record input
         if self.record_input_output:
@@ -227,10 +247,10 @@ class CloneAlignTree(CloneAlign):
             print("CloneAlign Tree finishes at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
             
             self.record_clone_assign_to_dict(expr_cells, clone_assign, clean_clades)
-            if self.infer_s_score:
+            if has_total_copy_number_data and self.infer_s_score:
                 self.record_param_to_dict(self.gene_type_score_dict, clone_cnv_df.index, params_dict['mean_gene_type_score'])
             
-            if self.infer_b_allele:
+            if has_allele_specific_data and self.infer_b_allele:
                 self.record_param_to_dict(self.allele_assign_prob_dict, hscn_input.index, params_dict['mean_allele_assign_prob'])
                 
 

@@ -41,8 +41,6 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
-        # only keep cells that have cnv profile
-        self.clone_df = self.clone_df[self.clone_df['cell_id'].isin(self.cnv_df.columns.values)]
 
         clone_cell_counts = self.clone_df['clone_id'].value_counts()
         cells_to_keep = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
@@ -60,7 +58,10 @@ class CloneAlignClone(CloneAlign):
         :return: clone_assign_df (pandas.DataFrame) and gene_type_score_df (pandas.DataFrame)
         '''
         terminals = []
-        expr_cells = self.expr_df.columns.values
+        if self.expr_df is not None:
+            expr_cells = self.expr_df.columns.values
+        if self.snv_df is not None:
+            expr_cells = self.snv_df.columns.values
         clones = self.clone_df["clone_id"].drop_duplicates().values
         
         for clone in clones:
@@ -70,19 +71,32 @@ class CloneAlignClone(CloneAlign):
         # construct total copy number input
         expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
         # construct allele specific input
-        hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)        
+        hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells) 
+        
         # make columns consistent
         self.make_columns_consistent(expr_input, snv_allele_input, snv_input)
         
+        
+        has_allele_specific_data = hscn_input is not None and snv_allele_input is not None and snv_input is not None
+        has_total_copy_number_data = expr_input is not None and clone_cnv_df is not None        
+        
         # run clonealign
-        clone_count = clone_cnv_df.shape[1]
+        gene_count = 0
+        snp_count = 0
+        cell_count = 0
+        if has_total_copy_number_data:
+            gene_count = clone_cnv_df.shape[0]
+            cell_count = expr_input.shape[1]
+            print("gene count: " + str(gene_count))
         
-        if(clone_cnv_df.shape[0] == 0):
-            raise ValueError('No valid genes exist in the cnv matrix after filtering. Maybe loose the filtering criteria? or the cnv profiles of clones are too similar.')
+        if has_allele_specific_data:
+            snp_count = hscn_input.shape[0]
+            cell_count = snv_input.shape[1]
+            print("snp count: " + str(snp_count))
         
-        print(f'Start run clonealign for {clone_count} clones:')
-        print("cnv gene count: " + str(clone_cnv_df.shape[0]))
-        print("expr cell count: " + str(expr_input.shape[1]))
+        if gene_count == 0 and snp_count == 0:
+            raise ValueError('No valid genes or snps exist in the matrix after filtering. Maybe loose the filtering criteria?')
+        print("cell count: " + str(cell_count))
 
         # record input
         if self.record_input_output:
@@ -102,20 +116,27 @@ class CloneAlignClone(CloneAlign):
             self.params_dict['output']['clone_assign'] = clone_assign
             self.params_dict['output']['clone_assign_df'] = clone_assign_df
             self.params_dict['output']['params_dict'] = params_dict
-            
-
+        
+        
+        if has_total_copy_number_data:
+            cell_count = expr_input.shape[1]
+            cell_names = expr_input.columns.values
+        if not has_total_copy_number_data:
+            cell_count = snv_input.shape[1]
+            cell_names = snv_input.columns.values
         # record clone_assign
-        for i in range(expr_input.shape[1]):
+        for i in range(cell_count):
             if np.isnan(clone_assign.values[i]):
-                self.clone_assign_dict[expr_input.columns.values[i]] = np.nan
+                self.clone_assign_dict[cell_names[i]] = np.nan
             else:
-                self.clone_assign_dict[expr_input.columns.values[i]] = clones[int(clone_assign.values[i])]
-
+                self.clone_assign_dict[cell_names[i]] = clones[int(clone_assign.values[i])]
+                
+                
         # record gene_type_score
-        if self.infer_s_score:
+        if has_total_copy_number_data and self.infer_s_score:
             for i in range(expr_input.shape[0]):
                 self.gene_type_score_dict[expr_input.index.values[i]] = [params_dict['mean_gene_type_score'][i]]
-        if self.infer_b_allele:
+        if has_allele_specific_data and self.infer_b_allele:
             for i in range(hscn_input.shape[0]):
                 self.allele_assign_prob_dict[hscn_input.index.values[i]] = [params_dict['mean_allele_assign_prob'][i]]
 

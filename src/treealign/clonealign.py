@@ -45,6 +45,9 @@ class CloneAlign():
         contains_total_copy_data = self.cnv_df is not None and self.expr_df is not None
         contains_allele_specific_data = self.hscn_df is not None and self.snv_allele_df is not None and self.snv_df is not None
         
+        if (not contains_total_copy_data) and (not contains_allele_specific_data):
+            raise ValueError('Both total copy number data and allele specific data are missing!')
+        
         if contains_total_copy_data:
             self.cnv_df = self.cnv_df[self.cnv_df.var(1) > 0]
             self.expr_df = self.expr_df[self.expr_df.mean(1) > 0]
@@ -64,6 +67,10 @@ class CloneAlign():
             self.hscn_df = self.hscn_df.loc[intersect_index, ]
             self.snv_allele_df = self.snv_allele_df.loc[intersect_index, intersect_cells]
             self.snv_df = self.snv_df.loc[intersect_index, intersect_cells]
+            
+            # add offsets to 0 and 1 in baf matrix
+            self.hscn_df[self.hscn_df == 0] = 0.05
+            self.hscn_df[self.hscn_df == 1] = 0.95
         
         if contains_total_copy_data and contains_allele_specific_data:
             intersect_cells = self.expr_df.columns & self.snv_allele_df.columns & self.snv_df.columns
@@ -81,7 +88,8 @@ class CloneAlign():
         clone_cnv_list = []
         mode_freq_list = []
         for terminal in terminals:
-            cnv_subset = self.cnv_df[terminal]
+            clean_terminal = [t for t in terminal if t in self.cnv_df.columns]
+            cnv_subset = self.cnv_df[clean_terminal]
             current_mode = cnv_subset.mode(1)[0]
             clone_cnv_list.append(current_mode)
             mode_freq_list.append(cnv_subset.eq(current_mode, axis=0).sum(axis=1).div(cnv_subset.shape[1]))
@@ -118,7 +126,8 @@ class CloneAlign():
         mode_freq_list = []
         
         for terminal in terminals:
-            hscn_subset = self.hscn_df[terminal]
+            clean_terminal = [t for t in terminal if t in self.hscn_df.columns]
+            hscn_subset = self.hscn_df[clean_terminal]
             current_mode = hscn_subset.mode(1)[0]
             clone_hscn_list.append(current_mode)
             mode_freq_list.append(hscn_subset.eq(current_mode, axis=0).sum(axis=1).div(hscn_subset.shape[1]))
@@ -155,11 +164,24 @@ class CloneAlign():
     
     # inplace method
     def make_columns_consistent(self, *args):
-        intersect_columns = args[0].columns
+        intersect_columns = None
         for arg in args:
-            intersect_columns = intersect_columns.intersection(arg.columns)
+            if hasattr(arg, 'columns'):
+                if intersect_columns is None:
+                    intersect_columns = arg.columns
+                else:
+                    intersect_columns = intersect_columns.intersection(arg.columns)
         for arg in args:
-            arg.drop(columns=[col for col in arg if col not in intersect_columns], inplace=True)
+            if hasattr(arg, 'columns'):
+                arg.drop(columns=[col for col in arg if col not in intersect_columns], inplace=True)
+                
+    def convert_df_to_torch(self, df):
+        if df is not None:
+            df_torch = torch.tensor(df.values, dtype=torch.float64)
+            df_torch = torch.transpose(df_torch, 0, 1)
+            return df_torch
+        else:
+            return None
 
     def generate_output(self):
         '''
@@ -246,6 +268,10 @@ class CloneAlign():
         self.gene_type_score_dict = dict()
         self.allele_assign_prob_dict = dict()
         self.params_dict = dict()
+        
+        self.clone_assign_df = None
+        self.gene_type_score_df = None
+        self.allele_assign_prob_df = None
 
     @config_enumerate
     def clonealign_pyro_model(self, cnv, expr, hscn, snv_allele, snv, infer_s_score=True, infer_b_allele=True, temperature=0.5):
@@ -261,52 +287,56 @@ class CloneAlign():
         :param temperature: float
         :return: None
         '''
-
         num_of_clones = 0
         num_of_snps = 0
         num_of_cells = 0
         num_of_genes = 0
         hscn_complement = None
-               
-        if cnv is not None and expr is not None:
+        
+        has_total_copy_number_data = cnv is not None and expr is not None
+        has_allele_specific_data = hscn is not None and snv_allele is not None and snv is not None
+        
+        if has_total_copy_number_data:
             num_of_clones = len(cnv)
             num_of_cells = len(expr)
             num_of_genes = len(expr[0])
+            
+            softplus = Softplus()
 
-        if hscn is not None and snv_allele is not None and snv is not None:
+            # initialize per_copy_expr using the data (This typically speeds up convergence)
+            expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+            per_copy_expr_guess = torch.mean(expr, 0)
+
+            # draw chi from gamma
+            chi = pyro.sample('expose_chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))            
+
+        if has_allele_specific_data:
+            num_of_clones = len(hscn)
+            num_of_cells = len(snv)
             num_of_snps = len(hscn[0])
             hscn_complement = 1 - hscn
 
 
-        softplus = Softplus()
+        if has_total_copy_number_data:
+            with pyro.plate('gene', num_of_genes):
+                # draw per_copy_expr from softplus-transformed Normal distribution
+                per_copy_expr = pyro.sample('expose_per_copy_expr',
+                                            dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 20))
+                per_copy_expr = softplus(per_copy_expr)
 
-        # initialize per_copy_expr using the data (This typically speeds up convergence)
-        expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
-        per_copy_expr_guess = torch.mean(expr, 0)
+                # draw w from Normal
+                w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
 
-
-        # draw chi from gamma
-        chi = pyro.sample('expose_chi', dist.Gamma(torch.ones(6) * 2, torch.ones(6)).to_event(1))
-
-        with pyro.plate('gene', num_of_genes):
-            # draw per_copy_expr from softplus-transformed Normal distribution
-            per_copy_expr = pyro.sample('expose_per_copy_expr',
-                                        dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 20))
-            per_copy_expr = softplus(per_copy_expr)
-
-            # draw w from Normal
-            w = pyro.sample('expose_w', dist.Normal(torch.zeros(6), torch.sqrt(chi)).to_event(1))
-
-            if infer_s_score:
-                # sample the gene_type_score from uniform distribution.
-                # the score reflects how much the copy number influence expression.
-                gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
-                gene_type = pyro.sample('gene_type',
-                                        dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
-                                                                      probs=gene_type_score))
+                if infer_s_score:
+                    # sample the gene_type_score from uniform distribution.
+                    # the score reflects how much the copy number influence expression.
+                    gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
+                    gene_type = pyro.sample('gene_type',
+                                            dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
+                                                                          probs=gene_type_score))
 
         # infer whether reference allele is b allele
-        if infer_b_allele:
+        if has_allele_specific_data and infer_b_allele:
             with pyro.plate('snp', num_of_snps):
                 # draw allele assignment prob from beta dist
                 allele_assign_prob = pyro.sample('expose_allele_assign_prob',  dist.Dirichlet(torch.ones(2) * 1))
@@ -320,7 +350,7 @@ class CloneAlign():
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
             # construct expected_expr
-            if cnv is not None and expr is not None:
+            if has_total_copy_number_data:
                 # draw psi from Normal
                 psi = pyro.sample('expose_psi', dist.Normal(torch.zeros(6), torch.ones(6)).to_event(1))                
                 if infer_s_score:
@@ -330,7 +360,7 @@ class CloneAlign():
                 # draw expr from Multinomial
                 pyro.sample('cnv', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
 
-            if hscn is not None and snv_allele is not None and snv is not None:
+            if has_allele_specific_data:
                 if infer_b_allele:
                     real_hscn = Vindex(hscn)[clone_assign] * allele_assign[:, 0] + Vindex(hscn_complement)[clone_assign] * allele_assign[:, 1]
                 else:
@@ -392,20 +422,11 @@ class CloneAlign():
         :return: frequency of unassigned cells, clone assignment, gene_type_score
         '''
         torch.set_default_dtype(torch.float64)
-        cnv = torch.tensor(cnv_df.values, dtype=torch.float64)
-        cnv = torch.transpose(cnv, 0, 1)
-
-        expr = torch.tensor(expr_df.values, dtype=torch.float64)
-        expr = torch.transpose(expr, 0, 1)
-        
-        hscn = torch.tensor(hscn_df.values, dtype=torch.float64)
-        hscn = torch.transpose(hscn, 0, 1)
-        
-        snv_allele = torch.tensor(snv_allele_df.values, dtype=torch.float64)
-        snv_allele = torch.transpose(snv_allele, 0, 1)
-        
-        snv = torch.tensor(snv_df.values, dtype=torch.float64)
-        snv = torch.transpose(snv, 0, 1)
+        cnv = self.convert_df_to_torch(cnv_df)
+        expr = self.convert_df_to_torch(expr_df)
+        hscn = self.convert_df_to_torch(hscn_df)
+        snv_allele = self.convert_df_to_torch(snv_allele_df)
+        snv = self.convert_df_to_torch(snv_df)
 
         clone_assign_list = []
         other_params = dict()
@@ -421,10 +442,10 @@ class CloneAlign():
             clone_assign_list.append(current_clone_assign_discrete)
             
             for param_name in current_results:
-              if param_name != 'clone_assign_prob':
-                if param_name not in other_params:
-                  other_params[param_name] = []
-                other_params[param_name].append(current_results[param_name].iloc[:, 0])
+                if param_name != 'clone_assign_prob':
+                    if param_name not in other_params:
+                        other_params[param_name] = []
+                    other_params[param_name].append(current_results[param_name].iloc[:, 0])
                   
         mean_params = dict()
         for param_name in other_params:
