@@ -72,6 +72,7 @@ class CloneAlignVis:
         # remove clones not in tree
         clones = set(self.cnv_clone_assign['clonealign_tree_id'].unique().tolist())
         self.clone_assign_tree = self.clone_assign_tree[self.clone_assign_tree['clonealign_tree_id'].isin(clones)]
+        self.clone_assign_tree = self.clone_assign_tree[self.clone_assign_tree['clonealign_tree_id'].isin(self.terminal_nodes)]
 
         # else order cnv cells by clone_id
         self.expr_meta = self.merge_meta(self.expr_cells, 'inner', self.expr_meta, self.clone_assign_tree,

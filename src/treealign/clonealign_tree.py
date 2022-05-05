@@ -15,7 +15,7 @@ class CloneAlignTree(CloneAlign):
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
                  record_input_output=False,
                  min_cell_count_expr=20, min_cell_count_cnv=20, min_gene_diff=100, min_snp_diff=100, level_cutoff=10,
-                 min_proceed_freq=0.7):
+                 min_proceed_freq=0.7, min_record_freq=0.7):
         '''
         initialize CloneAlignTree object
         :param expr: expr read count matrix. row is gene, column is cell. (pandas.DataFrame)
@@ -57,6 +57,7 @@ class CloneAlignTree(CloneAlign):
         self.min_snp_diff = min_snp_diff
         self.level_cutoff = level_cutoff
         self.min_proceed_freq = min_proceed_freq
+        self.min_record_freq = min_record_freq
 
         # output
         self.pruned_clades = set()
@@ -236,25 +237,27 @@ class CloneAlignTree(CloneAlign):
             
 
         print("Clonealign finished!")
-
-        if 1 - none_freq < self.min_proceed_freq:
-            print("CloneAlign Tree stops at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
-            for cl in clean_clades:
-                self.pruned_clades.add(cl.name)
-            return
-        else:
-            # record clone_assign
-            print("CloneAlign Tree finishes at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
-            
+        
+        # record clone assignment results
+        if 1 - none_freq >= self.min_record_freq:
             self.record_clone_assign_to_dict(expr_cells, clone_assign, clean_clades)
             if has_total_copy_number_data and self.infer_s_score:
                 self.record_param_to_dict(self.gene_type_score_dict, clone_cnv_df.index, params_dict['mean_gene_type_score'])
             
             if has_allele_specific_data and self.infer_b_allele:
-                self.record_param_to_dict(self.allele_assign_prob_dict, hscn_input.index, params_dict['mean_allele_assign_prob'])
+                self.record_param_to_dict(self.allele_assign_prob_dict, hscn_input.index, params_dict['mean_allele_assign_prob'])         
                 
-
+        if 1 - none_freq >= self.min_record_freq and 1-none_freq >= self.min_proceed_freq:
+            # proceed clone_assign
+            print("CloneAlign Tree finishes at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
             for i in range(len(clean_clades)):
                 new_expr_cells = [expr_cells[k] for k in range(len(expr_cells)) if clone_assign[k] == i]
                 self.assign_cells_to_clade(clean_clades[i], new_expr_cells, level + 1)
             return
+        else:
+            print("CloneAlign Tree stops at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
+            for cl in clean_clades:
+                self.pruned_clades.add(cl.name)
+            return            
+
+
