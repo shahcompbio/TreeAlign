@@ -69,8 +69,8 @@ class CloneAlign():
             self.snv_df = self.snv_df.loc[intersect_index, intersect_cells]
             
             # add offsets to 0 and 1 in baf matrix
-            self.hscn_df[self.hscn_df == 0] = 0.05
-            self.hscn_df[self.hscn_df == 1] = 0.95
+            self.hscn_df[self.hscn_df == 0] = 0.1
+            self.hscn_df[self.hscn_df == 1] = 0.9
         
         if contains_total_copy_data and contains_allele_specific_data:
             intersect_cells = self.expr_df.columns & self.snv_allele_df.columns & self.snv_df.columns
@@ -345,7 +345,7 @@ class CloneAlign():
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
-            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 0.1))
+            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 1))
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
@@ -364,7 +364,7 @@ class CloneAlign():
                 if infer_b_allele:
                     real_hscn = Vindex(hscn)[clone_assign] * allele_assign[:, 0] + Vindex(hscn_complement)[clone_assign] * allele_assign[:, 1]
                 else:
-                    real_hscn = hscn
+                    real_hscn = Vindex(hscn)[clone_assign]
                 pyro.sample('hscn', dist.Binomial(snv, real_hscn).to_event(1), obs = snv_allele)
 
     def run_clonealign_pyro(self, cnv, expr, hscn, snv_allele, snv):
