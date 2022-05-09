@@ -12,6 +12,7 @@ import pyro.optim
 import pyro.distributions as dist
 from pyro import poutine
 from pyro.infer.autoguide import AutoDelta
+from pyro.infer.autoguide.initialization import init_to_sample
 from pyro.infer import SVI, TraceEnum_ELBO, config_enumerate
 from pyro.ops.indexing import Vindex
 
@@ -233,6 +234,7 @@ class CloneAlign():
         :param rel_tol: when the relative change in elbo drops to rel_tol, stop inference. (float)
         :param record_input_output: record input output before and after clonealign runs. (bool)
         '''
+        
         self.map_estimates = None
         self.expr_df = expr
         self.cnv_df = cnv
@@ -287,6 +289,7 @@ class CloneAlign():
         :param temperature: float
         :return: None
         '''
+
         num_of_clones = 0
         num_of_snps = 0
         num_of_cells = 0
@@ -302,9 +305,12 @@ class CloneAlign():
             num_of_genes = len(expr[0])
             
             softplus = Softplus()
-
+            
+            expr_total_count = torch.sum(expr, 1)
+            expr_total_count_median = torch.median(expr_total_count)
+            
             # initialize per_copy_expr using the data (This typically speeds up convergence)
-            expr = expr * 3000 / torch.reshape(torch.sum(expr, 1), (num_of_cells, 1))
+            expr = expr * expr_total_count_median / torch.reshape(expr_total_count, (num_of_cells, 1))
             per_copy_expr_guess = torch.mean(expr, 0)
 
             # draw chi from gamma
@@ -321,7 +327,7 @@ class CloneAlign():
             with pyro.plate('gene', num_of_genes):
                 # draw per_copy_expr from softplus-transformed Normal distribution
                 per_copy_expr = pyro.sample('expose_per_copy_expr',
-                                            dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 20))
+                                            dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 10))
                 per_copy_expr = softplus(per_copy_expr)
 
                 # draw w from Normal
@@ -330,9 +336,8 @@ class CloneAlign():
                 if infer_s_score:
                     # sample the gene_type_score from uniform distribution.
                     # the score reflects how much the copy number influence expression.
-                    gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
-                    gene_type = pyro.sample('gene_type',
-                                            dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
+                    gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 1))
+                    gene_type = pyro.sample('gene_type', dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
                                                                           probs=gene_type_score))
 
         # infer whether reference allele is b allele
@@ -358,7 +363,7 @@ class CloneAlign():
                 else:
                     expected_expr = per_copy_expr * Vindex(cnv)[clone_assign] * torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
                 # draw expr from Multinomial
-                pyro.sample('cnv', dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False), obs=expr)
+                pyro.sample('cnv', dist.Multinomial(total_count=expr_total_count_median.item(), probs=expected_expr, validate_args=False), obs=expr)
 
             if has_allele_specific_data:
                 if infer_b_allele:
@@ -366,14 +371,17 @@ class CloneAlign():
                 else:
                     real_hscn = Vindex(hscn)[clone_assign]
                 pyro.sample('hscn', dist.Binomial(snv, real_hscn).to_event(1), obs = snv_allele)
-
-    def run_clonealign_pyro(self, cnv, expr, hscn, snv_allele, snv):
+                
+        
+    
+    def run_clonealign_pyro(self, cnv, expr, hscn, snv_allele, snv, current_repeat):
         '''
         clonealign inference
         :param cnv: clone-specific consensus copy number matrix. row is clone. column is gene. (torch.tensor)
         :param expr: gene expression count matrix. row is cell. column is gene. (torch.tensor)
         :return: clone assignment, gene_type_score
         '''
+        
         np_temp = self.max_temp
         losses = []
 
@@ -381,13 +389,19 @@ class CloneAlign():
         elbo = TraceEnum_ELBO(max_plate_nesting=1)
 
         model = self.clonealign_pyro_model
-
-        pyro.clear_param_store()
-
-        global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")))
-
-        svi = SVI(model, global_guide, optim, loss=elbo)
-
+        
+        def initialize(seed):
+            global global_guide, svi
+            pyro.set_rng_seed(seed)
+            pyro.clear_param_store()
+            global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")), init_loc_fn=init_to_sample)
+            svi = SVI(model, global_guide, optim, loss=elbo)
+            return svi.loss(model, global_guide, cnv, expr, hscn, snv_allele, snv, self.infer_s_score, self.infer_b_allele, np_temp)
+                  
+        loss, seed = min((initialize(seed), seed) for seed in range(current_repeat * 100, (current_repeat + 1) * 100))
+        initialize(seed)
+        print('seed = {}, initial_loss = {}'.format(seed, loss))
+        
         # start inference
         print('Start Inference.')
         for i in range(self.max_iter):
@@ -432,7 +446,7 @@ class CloneAlign():
         other_params = dict()
 
         for i in range(self.repeat):
-            current_results = self.run_clonealign_pyro(cnv, expr, hscn, snv_allele, snv)
+            current_results = self.run_clonealign_pyro(cnv, expr, hscn, snv_allele, snv, i)
             
             current_clone_assign = current_results['clone_assign_prob']
             current_clone_assign_prob = current_clone_assign.max(1)
