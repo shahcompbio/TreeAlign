@@ -363,7 +363,7 @@ class CloneAlign():
                 else:
                     expected_expr = per_copy_expr * Vindex(cnv)[clone_assign] * torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
                 # draw expr from Multinomial
-                pyro.sample('cnv', dist.Multinomial(total_count=expr_total_count_median.item(), probs=expected_expr, validate_args=False), obs=expr)
+                pyro.sample('cnv', dist.Multinomial(total_count=int(expr_total_count_median.item()), probs=expected_expr, validate_args=False), obs=expr)
 
             if has_allele_specific_data:
                 if infer_b_allele:
