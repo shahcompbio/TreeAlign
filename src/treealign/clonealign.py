@@ -90,6 +90,8 @@ class CloneAlign():
         mode_freq_list = []
         for terminal in terminals:
             clean_terminal = [t for t in terminal if t in self.cnv_df.columns]
+            if len(clean_terminal) == 0:
+                raise ValueError("Too many cells in the phylogenetic tree don't have copy number profiles. Please double check you are using the correct CN matrix.")
             cnv_subset = self.cnv_df[clean_terminal]
             current_mode = cnv_subset.mode(1)[0]
             clone_cnv_list.append(current_mode)
@@ -128,6 +130,8 @@ class CloneAlign():
         
         for terminal in terminals:
             clean_terminal = [t for t in terminal if t in self.hscn_df.columns]
+            if len(clean_terminal) == 0:
+                raise ValueError("Too many cells in the phylogenetic tree don't have BAF profiles. Please double check you are using the correct BAF input.")
             hscn_subset = self.hscn_df[clean_terminal]
             current_mode = hscn_subset.mode(1)[0]
             clone_hscn_list.append(current_mode)
