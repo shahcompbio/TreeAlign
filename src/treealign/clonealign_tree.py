@@ -72,6 +72,10 @@ class CloneAlignTree(CloneAlign):
             self.add_tree_node_name(child)
         return
 
+    def record_clone_assign_to_default(self, expr_cells, root_clade):
+        for i in range(len(expr_cells)):
+            self.clone_assign_dict[expr_cells[i]] = root_clade.name
+
     def record_clone_assign_to_dict(self, expr_cells, clone_assign, clean_clades):
         '''
         record clone assignment results to self.clone_assign_dict
@@ -98,6 +102,12 @@ class CloneAlignTree(CloneAlign):
                 param_dict[indices[i]] = []
             param_dict[indices[i]].append(params[i])
     
+    def check_valid_df_input(self, *argv):
+        for arg in argv:
+            if arg is None or arg.shape[0] == 0 or arg.shape[1] == 0:
+                return False
+        return True
+
     
     def assign_cells_to_tree(self):
         '''
@@ -112,6 +122,9 @@ class CloneAlignTree(CloneAlign):
         else:
             cells = list(self.snv_df.columns)
 
+        # record default output
+        self.record_clone_assign_to_default(cells, self.tree.clade)
+        
         self.assign_cells_to_clade(self.tree.clade, cells, 0)
 
         return
@@ -131,16 +144,16 @@ class CloneAlignTree(CloneAlign):
         if level > self.level_cutoff:
             # add to pruned_clades
             self.pruned_clades.add(current_clade.name)
-            print("At " + current_clade.name + ", the level limit exceeds.")
+            print(f"At {current_clade.name}, the level limit exceeds.")
             return
 
         all_terminals = current_clade.get_terminals()
         if len(expr_cells) < self.min_cell_count_expr or len(all_terminals) < self.min_cell_count_cnv:
             self.pruned_clades.add(current_clade.name)
             if len(expr_cells) < self.min_cell_count_expr:
-                print("At " + current_clade.name + ", there are less than " + str(self.min_cell_count_expr) + " cells in the expr matrix.")
+                print(f"At {current_clade.name}, there are less than {self.min_cell_count_expr} cells in the expr matrix.")
             if len(all_terminals) < self.min_cell_count_cnv:
-                print("At " + current_clade.name + ", there are less than " + str(self.min_cell_count_cnv) + " clades in the cnv matrix.")
+                print(f"At {current_clade.name} there are less than {self.min_cell_count_cnv} clades in the cnv matrix.")
             return
 
         # get next clades
@@ -162,13 +175,13 @@ class CloneAlignTree(CloneAlign):
         if len(clean_clades) == 1:
             for cell in expr_cells:
                 self.clone_assign_dict[cell] = clean_clades[0].name
-            print("At " + current_clade.name + ", there is only one clean child clade existing.")
+            print(f"At {current_clade.name} there is only one clean child clade existing.")
             self.assign_cells_to_clade(clean_clades[0], expr_cells, level + 1)
             return
             
         # if there is no clone, return
         if len(clean_clades) == 0:
-            print("At " + current_clade.name + ", there is no clean child clade.")
+            print(f"At {current_clade.name}, there is no clean child clade.")
             return
             
         # print the children
@@ -178,43 +191,57 @@ class CloneAlignTree(CloneAlign):
             
         # construct total copy number input
         expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
+
         # construct allele specific input
         hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)
         # make columns consistent
         self.make_columns_consistent(expr_input, snv_allele_input, snv_input)     
         
-        has_allele_specific_data = hscn_input is not None and snv_allele_input is not None and snv_input is not None
-        has_total_copy_number_data = expr_input is not None and clone_cnv_df is not None   
+        has_allele_specific_data = self.check_valid_df_input(hscn_input, snv_allele_input, snv_input)  
+        has_total_copy_number_data = self.check_valid_df_input(expr_input, clone_cnv_df)
         
         if has_total_copy_number_data:
             gene_count = clone_cnv_df.shape[0]
+            expr_cell_count = expr_input.shape[1]
         else:
             gene_count = 0
+            expr_cell_count = 0
+            clone_cnv_df = None
+            expr_input = None
             
         if has_allele_specific_data:
             snp_count = hscn_input.shape[0]
+            snv_allele_cell_count = snv_allele_input.shape[1]
         else:
             snp_count = 0
-        
-        print("There are " + str(gene_count) + " genes in matrices. ")
+            snv_allele_cell_count = 0
+            hscn_input = None
+            snv_allele_input = None
+            snv_input = None
+
+        if not has_total_copy_number_data and not has_allele_specific_data:
+            for clade in clean_clades:
+                self.pruned_clades.add(clade.name)
+            print(f"Fail to construct valid input for clade {current_clade.name}. TreeAlign stops.")            
+            return
+
         if gene_count < self.min_gene_diff and snp_count < self.min_snp_diff:
             # add all clean clades to pruned clades
             for clade in clean_clades:
                 self.pruned_clades.add(clade.name)
-            print("cnv gene count less than self.min_gene_diff: " + str(gene_count))
-            print("snp count less than self.min_snp_diff: "  + str(snp_count))
+            print(f"cnv gene count less than self.min_gene_diff: {gene_count}")
+            print(f"snp count less than self.min_snp_diff: {snp_count}")
             return
-
 
         # run clonealign
         print("Start run clonealign for clade: " + current_clade.name)
         if has_total_copy_number_data:
-            print("cnv gene count: " + str(clone_cnv_df.shape[0]))
-            print("expr cell count: " + str(expr_input.shape[1]))
+            print(f"cnv gene count: {gene_count}")
+            print(f"expr cell count: {expr_cell_count}")
             
         if has_allele_specific_data:
-            print("hscn snp count: " + str(hscn_input.shape[0]))
-            print("snv allele matrix cell count: " + str(snv_allele_input.shape[1]))
+            print(f"hscn snp count: {snp_count}")
+            print(f"snv allele matrix cell count: {snv_allele_cell_count}")
         
         # record input
         if self.record_input_output:
@@ -243,19 +270,25 @@ class CloneAlignTree(CloneAlign):
             self.record_clone_assign_to_dict(expr_cells, clone_assign, clean_clades)
             if has_total_copy_number_data and self.infer_s_score:
                 self.record_param_to_dict(self.gene_type_score_dict, clone_cnv_df.index, params_dict['mean_gene_type_score'])
+                # print out gene type score of certain genes
+                if 'MYC' in self.gene_type_score_dict:
+                    print(f"MYC: {self.gene_type_score_dict['MYC']}")
+                if 'MECOM' in self.gene_type_score_dict:
+                    print(f"MECOM: {self.gene_type_score_dict['MECOM']}")
+
             
             if has_allele_specific_data and self.infer_b_allele:
                 self.record_param_to_dict(self.allele_assign_prob_dict, hscn_input.index, params_dict['mean_allele_assign_prob'])         
                 
         if 1 - none_freq >= self.min_record_freq and 1-none_freq >= self.min_proceed_freq:
             # proceed clone_assign
-            print("CloneAlign Tree finishes at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
+            print(f"CloneAlign Tree finishes at clade: {current_clade.name} with correct frequency {1 - none_freq}\n")
             for i in range(len(clean_clades)):
                 new_expr_cells = [expr_cells[k] for k in range(len(expr_cells)) if clone_assign[k] == i]
                 self.assign_cells_to_clade(clean_clades[i], new_expr_cells, level + 1)
             return
         else:
-            print("CloneAlign Tree stops at clade: " + current_clade.name + " with correct frequency " + str(1 - none_freq) + '\n')
+            print(f"CloneAlign Tree stops at clade: {current_clade.name} with correct frequency {1 - none_freq}\n")
             for cl in clean_clades:
                 self.pruned_clades.add(cl.name)
             return            

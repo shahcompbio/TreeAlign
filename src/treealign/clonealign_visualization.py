@@ -32,7 +32,8 @@ class CloneAlignVis:
         self.expr_matrix = expr_matrix
         # rename column names
         self.clone_assign_clone = clone_assign_clone
-        self.clone_assign_clone = self.clone_assign_clone.rename(columns={'clone_id': 'clonealign_clone_id'})
+        if self.clone_assign_clone is not None:
+            self.clone_assign_clone = self.clone_assign_clone.rename(columns={'clone_id': 'clonealign_clone_id'})
         self.clone_assign_tree = clone_assign_tree
         self.clone_assign_tree = self.clone_assign_tree.rename(columns={'clone_id': 'clonealign_tree_id'})
 
@@ -74,7 +75,9 @@ class CloneAlignVis:
         self.clone_assign_tree = self.clone_assign_tree[self.clone_assign_tree['clonealign_tree_id'].isin(clones)]
         self.clone_assign_tree = self.clone_assign_tree[self.clone_assign_tree['clonealign_tree_id'].isin(self.terminal_nodes)]
 
+
         # else order cnv cells by clone_id
+
         self.expr_meta = self.merge_meta(self.expr_cells, 'inner', self.expr_meta, self.clone_assign_tree,
                                          self.clone_assign_clone)
 
@@ -93,7 +96,7 @@ class CloneAlignVis:
         self.expr_matrix = self.expr_matrix.reindex(self.genes['gene'].values.tolist())
         
         self.cnv_matrix = self.cnv_matrix.reindex(columns=self.cnv_meta['cell_id'].values.tolist())
-        print(self.cnv_matrix)
+
         self.expr_matrix = self.expr_matrix.reindex(columns=self.expr_meta['cell_id'].values.tolist())
 
         # subsample the matrix to keep given number of genes
@@ -124,7 +127,7 @@ class CloneAlignVis:
             root = self.tree.clade
 
             def get_json(clade):
-                js_output = {"name": clade.name, "length": clade.branch_length}
+                js_output = {"name": clade.name, "length": clade.branch_length if clade.branch_length is not None else 1}
                 if not clade.is_terminal():
                     clades = clade.clades
                     js_output["children"] = []
@@ -269,10 +272,11 @@ class CloneAlignVis:
         for terminal in self.terminal_nodes:
             left_indices = self.cnv_meta.index[self.cnv_meta[select_column] == terminal].values
             right_indices = self.expr_meta.index[self.expr_meta[select_column] == terminal].values
-            sankey_element = {"name": terminal,
-                              "left": [left_indices.min().item(), left_indices.max().item()],
-                              "right": [right_indices.min().item(), right_indices.max().item()]}
-            self.sankey.append(sankey_element)
+            if len(left_indices) != 0 and len(right_indices) != 0:
+                sankey_element = {"name": terminal,
+                                "left": [left_indices.min().item(), left_indices.max().item()],
+                                "right": [right_indices.min().item(), right_indices.max().item()]}
+                self.sankey.append(sankey_element)
 
     def get_cnv_cell_assignments(self):
         clone_assign = self.clone_assign_tree
@@ -285,6 +289,7 @@ class CloneAlignVis:
 
         clade = tree.clade
         node_queue = [clade]
+
         while len(node_queue) > 0:
             current_len = len(node_queue)
             for i in range(current_len):

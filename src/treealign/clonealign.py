@@ -52,6 +52,12 @@ class CloneAlign():
         if contains_total_copy_data:
             self.cnv_df = self.cnv_df[self.cnv_df.var(1) > 0]
             self.expr_df = self.expr_df[self.expr_df.mean(1) > 0]
+
+            # normalize expr_df by total read count per cell
+            expr_total_count = self.expr_df.sum(axis=0)
+            # expr_total_count_median = pd.median(expr_total_count)            
+            self.expr_df = self.expr_df * 5000
+            self.expr_df = self.expr_df.div(expr_total_count, axis="columns")
     
             intersect_index = self.cnv_df.index.intersection(self.expr_df.index)
     
@@ -91,7 +97,8 @@ class CloneAlign():
         for terminal in terminals:
             clean_terminal = [t for t in terminal if t in self.cnv_df.columns]
             if len(clean_terminal) == 0:
-                raise ValueError("Too many cells in the phylogenetic tree don't have copy number profiles. Please double check you are using the correct CN matrix.")
+                print("Too many cells in the phylogenetic tree don't have copy number profiles. Please double check you are using the correct CN matrix.")
+                return None, None
             cnv_subset = self.cnv_df[clean_terminal]
             current_mode = cnv_subset.mode(1)[0]
             clone_cnv_list.append(current_mode)
@@ -108,7 +115,6 @@ class CloneAlign():
         # cnv normalization
         if self.normalize_cnv:
             clone_cnv_df = clone_cnv_df.div(clone_cnv_df[clone_cnv_df > 0].min(axis=1), axis=0)
-
 
         expr_input = self.expr_df[expr_cells]
         expr_input = expr_input[expr_input.mean(1) > 0]
@@ -131,7 +137,8 @@ class CloneAlign():
         for terminal in terminals:
             clean_terminal = [t for t in terminal if t in self.hscn_df.columns]
             if len(clean_terminal) == 0:
-                raise ValueError("Too many cells in the phylogenetic tree don't have BAF profiles. Please double check you are using the correct BAF input.")
+                print("Too many cells in the phylogenetic tree don't have BAF profiles. Please double check you are using the correct BAF input.")
+                return None, None, None
             hscn_subset = self.hscn_df[clean_terminal]
             current_mode = hscn_subset.mode(1)[0]
             clone_hscn_list.append(current_mode)
@@ -302,7 +309,7 @@ class CloneAlign():
         
         has_total_copy_number_data = cnv is not None and expr is not None
         has_allele_specific_data = hscn is not None and snv_allele is not None and snv is not None
-        
+
         if has_total_copy_number_data:
             num_of_clones = len(cnv)
             num_of_cells = len(expr)
@@ -310,11 +317,11 @@ class CloneAlign():
             
             softplus = Softplus()
             
-            expr_total_count = torch.sum(expr, 1)
-            expr_total_count_median = torch.median(expr_total_count)
+            #expr_total_count = torch.sum(expr, 1)
+            # expr_total_count_median = torch.median(expr_total_count)
             
             # initialize per_copy_expr using the data (This typically speeds up convergence)
-            expr = expr * expr_total_count_median / torch.reshape(expr_total_count, (num_of_cells, 1))
+            # expr = expr * expr_total_count_median / torch.reshape(expr_total_count, (num_of_cells, 1))
             per_copy_expr_guess = torch.mean(expr, 0)
 
             # draw chi from gamma
@@ -367,7 +374,7 @@ class CloneAlign():
                 else:
                     expected_expr = per_copy_expr * Vindex(cnv)[clone_assign] * torch.exp(torch.matmul(psi, torch.transpose(w, 0, 1)))
                 # draw expr from Multinomial
-                pyro.sample('cnv', dist.Multinomial(total_count=int(expr_total_count_median.item()), probs=expected_expr, validate_args=False), obs=expr)
+                pyro.sample('cnv', dist.Multinomial(total_count=5000, probs=expected_expr, validate_args=False), obs=expr)
 
             if has_allele_specific_data:
                 if infer_b_allele:
