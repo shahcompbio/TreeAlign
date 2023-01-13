@@ -65,7 +65,7 @@ class CloneAlignVis:
             self.cnv_clone_assign = None
 
         # merge all cnv meta data
-        self.cnv_meta = self.merge_meta(self.cnv_cells, 'left', self.cnv_meta, self.cnv_clone_assign)
+        self.cnv_meta = CloneAlignVis.merge_meta(self.cnv_cells, 'left', self.cnv_meta, self.cnv_clone_assign)
 
         # clean up all the expr meta data
         self.expr_cells = pd.DataFrame({'cell_id': self.expr_matrix.columns.values.tolist()})
@@ -77,9 +77,7 @@ class CloneAlignVis:
 
 
         # else order cnv cells by clone_id
-
-        self.expr_meta = self.merge_meta(self.expr_cells, 'inner', self.expr_meta, self.clone_assign_tree,
-                                         self.clone_assign_clone)
+        self.expr_meta = CloneAlignVis.merge_meta(self.expr_cells, 'inner', expr_meta, self.clone_assign_tree, self.clone_assign_clone)
 
         # replace nan with empty string
         self.cnv_meta = self.cnv_meta.replace(np.nan, "", regex=True)
@@ -101,7 +99,6 @@ class CloneAlignVis:
 
         # subsample the matrix to keep given number of genes
         self.subsample_genes()
-
 
         # bin float expr to discrete
         self.bin_expr_matrix()
@@ -215,7 +212,8 @@ class CloneAlignVis:
             output_list.append(chr_dict)
         return output_list
 
-    def merge_meta(self, cell_order, how, *args):
+    @staticmethod
+    def merge_meta(cell_order, how, *args):
         output = cell_order
         for arg in args:
             if arg is not None:

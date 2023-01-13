@@ -5,4 +5,6 @@ __pycache__/*
 .idea/*
 .ipynb_checkpoints/*
 scripts/simulation/*
-
+src/tests/data/*
+*.pyc
+src/treealign.egg-info/*
