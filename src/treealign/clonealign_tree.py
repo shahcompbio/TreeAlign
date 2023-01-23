@@ -192,6 +192,9 @@ class CloneAlignTree(CloneAlign):
         # construct total copy number input
         expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
 
+        # add correct column name to clone_cnv_df
+        clone_cnv_df.columns = [clade.name for clade in clean_clades]
+
         # construct allele specific input
         hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells)
         # make columns consistent

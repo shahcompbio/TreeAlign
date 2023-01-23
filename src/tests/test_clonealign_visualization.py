@@ -4,7 +4,7 @@ from Bio import Phylo
 import pandas as pd
 import filecmp
 
-from treealign import CloneAlignVis
+from treealign.clonealign_visualization import CloneAlignVis
 
 class TestOutputJson(unittest.TestCase):
     DATA_DIR = Path(__file__).parent / 'data'

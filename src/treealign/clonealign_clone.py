@@ -46,7 +46,6 @@ class CloneAlignClone(CloneAlign):
         cells_to_keep = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
 
         self.clone_df = self.clone_df[self.clone_df['clone_id'].isin(cells_to_keep)]
-        self.clone_cnv_df = None
 
         if self.clone_df.shape[1] <= 1:
             raise ValueError('There are less than 2 clones in the input. Add more clones to run CloneAlign.')
@@ -70,6 +69,7 @@ class CloneAlignClone(CloneAlign):
         
         # construct total copy number input
         expr_input, clone_cnv_df = self.construct_total_copy_number_input(terminals, expr_cells)
+        clone_cnv_df.columns = clones
         # construct allele specific input
         hscn_input, snv_allele_input, snv_input = self.construct_allele_specific_input(terminals, expr_cells) 
         
