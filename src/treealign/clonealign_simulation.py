@@ -15,7 +15,7 @@ from .clonealign_clone import CloneAlignClone
 class CloneAlignSimulation:
     def __init__(self, expr, cnv, clone, hscn=None, snv_allele=None, snv=None):
         # run CloneAlignClone on real data
-        obj = CloneAlignClone(clone, expr, cnv, hscn, snv_allele, snv, repeat=1, record_input_output=True, infer_b_allele=False)
+        obj = CloneAlignClone(clone, expr, cnv, hscn, snv_allele, snv, repeat=1, record_input_output=True, infer_b_allele=False, normalize_cnv=True)
         obj.assign_cells_to_clones()
         self.map_estimates = obj.map_estimates
         self.clone_cnv_df = obj.params_dict['input']['cnv']
@@ -31,19 +31,22 @@ class CloneAlignSimulation:
 
     def simulate_data(self, output_dir, index=1, gene_count=500, snp_count=500, cell_counts=[100, 1000, 5000],
                       cnv_dependency_freqs=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]):
-
+        self.index = index
         cell_counts.sort()
         cnv_dependency_freqs.sort()
 
         cell_samples = []
 
         # sample cells
+        random.seed(index)
         cell_samples.append(random.choices(range(self.clone_cnv_df.shape[1]), k=cell_counts[0]))
+        random.seed(index)
         for i in range(1, len(cell_counts)):
             current_samples = random.choices(range(self.clone_cnv_df.shape[1]), k=cell_counts[i] - cell_counts[i - 1])
             cell_samples.append(cell_samples[i - 1] + current_samples)
 
         # sample genes
+        random.seed(index)
         gene_ids = random.sample(range(self.clone_cnv_df.shape[0]), k=gene_count)
 
         gene_type_score_dict = {}
@@ -62,6 +65,7 @@ class CloneAlignSimulation:
 
         if self.generate_allelic_data:
             # sample snps
+            random.seed(index)
             snp_ids = random.sample(range(self.snv.shape[0]), k=snp_count)
             simulated_snv_allele_format = output_dir + "/simulated_snv_allele_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
             simulated_snv_format = output_dir + "/simulated_snv_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv" 
@@ -100,6 +104,7 @@ class CloneAlignSimulation:
         w = self.map_estimates['expose_w'][gene_ids]
 
         psi = self.map_estimates['expose_psi']
+        random.seed(self.index)
         psi = psi[random.choices(range(psi.shape[0]), k=len(cell_sample))]
 
         softplus = Softplus()
@@ -110,7 +115,7 @@ class CloneAlignSimulation:
         gene_type_score = torch.tensor(gene_type_score.values)
 
         if self.generate_allelic_data:
-            current_hscn_df = self.hscn.iloc[snp_ids, cell_sample].replace(to_replace={0: 0.1, 1:0.9})         
+            current_hscn_df = self.hscn.iloc[snp_ids, cell_sample]        
             current_hscn = torch.tensor(current_hscn_df.values).transpose(0, 1)
 
 
@@ -121,7 +126,7 @@ class CloneAlignSimulation:
 
             # draw expr from Multinomial
             expr_simulated = pyro.sample('expr',
-                                         dist.Multinomial(total_count=3000, probs=expected_expr, validate_args=False))
+                                         dist.Multinomial(total_count=15000, probs=expected_expr, validate_args=False))
 
         # simulate allele specific data
         if self.generate_allelic_data:
@@ -129,7 +134,8 @@ class CloneAlignSimulation:
             current_snv_df = self.snv.iloc[snp_ids, ]
             current_snv = torch.tensor(current_snv_df.values).transpose(0, 1)
             # random select snv total profile
-            indices = torch.randperm(len(current_snv))[:len(cell_sample)]
+            torch.manual_seed(self.index) 
+            indices = torch.randperm(len(current_snv))[:len(cell_sample),]
             current_snv = current_snv[indices]
             # generate snv_allele
             snv_allele_simulated = pyro.sample('hscn', dist.Binomial(current_snv, current_hscn))
