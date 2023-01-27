@@ -338,7 +338,7 @@ class CloneAlign():
             with pyro.plate('gene', num_of_genes):
                 # draw per_copy_expr from softplus-transformed Normal distribution
                 per_copy_expr = pyro.sample('expose_per_copy_expr',
-                                            dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 20))
+                                            dist.Normal(inverse_softplus(per_copy_expr_guess), torch.ones(num_of_genes) * 10))
                 per_copy_expr = softplus(per_copy_expr)
 
                 # draw w from Normal
@@ -347,7 +347,7 @@ class CloneAlign():
                 if infer_s_score:
                     # sample the gene_type_score from uniform distribution.
                     # the score reflects how much the copy number influence expression.
-                    gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 0.1))
+                    gene_type_score = pyro.sample('expose_gene_type_score', dist.Dirichlet(torch.ones(2) * 1))
                     gene_type = pyro.sample('expose_gene_type', dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
                                                                           probs=gene_type_score))
 
@@ -355,13 +355,13 @@ class CloneAlign():
         if has_allele_specific_data and infer_b_allele:
             with pyro.plate('snp', num_of_snps):
                 # draw allele assignment prob from beta dist
-                allele_assign_prob = pyro.sample('expose_allele_assign_prob',  dist.Dirichlet(torch.ones(2) * 2))
+                allele_assign_prob = pyro.sample('expose_allele_assign_prob',  dist.Dirichlet(torch.ones(2) * 1))
                 allele_assign = pyro.sample('expose_allele', dist.RelaxedOneHotCategorical(temperature=torch.tensor(temperature),
                                                                           probs=allele_assign_prob))        
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
-            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 0.1))
+            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 1))
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
