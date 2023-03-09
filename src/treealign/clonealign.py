@@ -124,7 +124,9 @@ class CloneAlign():
         expr_input = expr_input.loc[intersect_index,]
         clone_cnv_df = clone_cnv_df.loc[intersect_index,]
         
-        return expr_input, clone_cnv_df
+        clone_cnv_df_dedup = clone_cnv_df[~clone_cnv_df.index.duplicated(keep='first')]
+        
+        return expr_input, clone_cnv_df_dedup
     
     
     def construct_allele_specific_input(self, terminals, expr_cells):
