@@ -227,8 +227,8 @@ class CloneAlign():
     def __init__(self, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
                  normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
                  min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,min_consensus_snv_freq=0.6,
-                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
-                 record_input_output=False):
+                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, cell_dirichlet_alpha = 1, 
+                 record_input_output=False, initialize_seed=False):
         '''
         initialize CloneAlign object
         :param expr: expr read count matrix. row is gene, column is cell. (pandas.DataFrame)
@@ -272,9 +272,11 @@ class CloneAlign():
         self.anneal_rate = anneal_rate
         self.learning_rate = learning_rate
         self.max_iter = max_iter
+        self.cell_dirichlet_alpha = cell_dirichlet_alpha
         self.record_input_output = record_input_output
 
         self.rel_tol = rel_tol
+        self.initialize_seed = initialize_seed
 
         # clean input matrix
         self.process_input_matrices()
@@ -364,7 +366,7 @@ class CloneAlign():
 
         with pyro.plate('cell', num_of_cells):
             # draw clone_assign_prob from Dir
-            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * 1))
+            clone_assign_prob = pyro.sample('expose_clone_assign_prob', dist.Dirichlet(torch.ones(num_of_clones) * self.cell_dirichlet_alpha))
             # draw clone_assign from Cat
             clone_assign = pyro.sample('clone_assign', dist.Categorical(clone_assign_prob))
 
@@ -406,23 +408,31 @@ class CloneAlign():
 
         model = self.clonealign_pyro_model
         
-        # def initialize(seed):
-        #     global global_guide, svi
-        #     pyro.set_rng_seed(seed)
-        #     pyro.clear_param_store()
-        #     global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")), init_loc_fn=init_to_sample)
-        #     svi = SVI(model, global_guide, optim, loss=elbo)
-        #     return svi.loss(model, global_guide, cnv, expr, hscn, snv_allele, snv, self.infer_s_score, self.infer_b_allele, np_temp)
-                  
-        # loss, seed = min((initialize(seed), seed) for seed in range(current_repeat * 100, (current_repeat + 1) * 100))
-        # initialize(seed)
-        pyro.set_rng_seed(current_repeat * 4 + 1)
-        pyro.clear_param_store()
-        global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")))
-
+        def initialize(seed):
+            pyro.set_rng_seed(seed)
+            torch.manual_seed(seed)
+            pyro.clear_param_store()
+            global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")), init_loc_fn=init_to_sample)
+            svi = SVI(model, global_guide, optim, loss=elbo)
+            return svi.loss(model, global_guide, cnv, expr, hscn, snv_allele, snv, self.infer_s_score, self.infer_b_allele, np_temp)
+        
+        if self.initialize_seed:
+            loss, seed = min((initialize(seed), seed) for seed in range(current_repeat * 100, (current_repeat + 1) * 100))
+            print('seed = {}, initial_loss = {}'.format(seed, loss))
+            pyro.set_rng_seed(seed)
+            torch.manual_seed(seed)
+            pyro.clear_param_store()
+            global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")), init_loc_fn=init_to_sample)
+        else:
+            seed = current_repeat * 4 + 1
+            print('seed = {}'.format(seed))
+            pyro.set_rng_seed(seed)
+            torch.manual_seed(seed)
+            pyro.clear_param_store()
+            global_guide = AutoDelta(poutine.block(model, expose_fn=lambda msg: msg["name"].startswith("expose_")), init_loc_fn=init_to_sample)        
+        
         svi = SVI(model, global_guide, optim, loss=elbo)
-
-        #print('seed = {}, initial_loss = {}'.format(seed, loss))
+        
         
         # start inference
         print('Start Inference.')

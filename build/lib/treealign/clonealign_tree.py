@@ -13,8 +13,8 @@ class CloneAlignTree(CloneAlign):
     def __init__(self, tree, expr=None, cnv=None, hscn=None, snv_allele=None, snv=None, 
                  normalize_cnv=True, cnv_cutoff=10, infer_s_score=True, infer_b_allele=True, repeat=10,
                  min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,min_consensus_snv_freq=0.6,
-                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, 
-                 record_input_output=False,
+                 max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, cell_dirichlet_alpha = 1, 
+                 record_input_output=False, initialize_seed=False, 
                  min_cell_count_expr=20, min_cell_count_cnv=20, min_gene_diff=100, min_snp_diff=100, level_cutoff=10,
                  min_proceed_freq=0.7, min_record_freq=0.7):
         '''
@@ -44,7 +44,7 @@ class CloneAlignTree(CloneAlign):
                             normalize_cnv, cnv_cutoff, infer_s_score, infer_b_allele, 
                             repeat, min_clone_assign_prob, min_clone_assign_freq, min_consensus_snv_freq,
                             min_consensus_gene_freq, max_temp, min_temp, anneal_rate, 
-                            learning_rate, max_iter, rel_tol, record_input_output)
+                            learning_rate, max_iter, rel_tol, cell_dirichlet_alpha, record_input_output, initialize_seed)
 
         self.tree = tree
         self.tree.ladderize()
