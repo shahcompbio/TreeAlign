@@ -96,7 +96,7 @@ class CloneAlign():
         clone_cnv_list = []
         mode_freq_list = []
         for terminal in terminals:
-            clean_terminal = [t for t in terminal if t in self.cnv_df.columns]
+            clean_terminal = [str(t) for t in terminal if str(t) in self.cnv_df.columns]
             if len(clean_terminal) == 0:
                 print("Too many cells in the phylogenetic tree don't have copy number profiles. Please double check you are using the correct CN matrix.")
                 return None, None
@@ -138,7 +138,7 @@ class CloneAlign():
         mode_freq_list = []
         
         for terminal in terminals:
-            clean_terminal = [t for t in terminal if t in self.hscn_df.columns]
+            clean_terminal = [str(t) for t in terminal if str(t) in self.hscn_df.columns]
             if len(clean_terminal) == 0:
                 print("Too many cells in the phylogenetic tree don't have BAF profiles. Please double check you are using the correct BAF input.")
                 return None, None, None
@@ -150,7 +150,7 @@ class CloneAlign():
         clone_hscn_df = pd.concat(clone_hscn_list, axis=1)
         mode_freq_df = pd.concat(mode_freq_list, axis=1)
         
-        variance_filter = clone_hscn_df.var(1).gt(0)
+        variance_filter = (clone_hscn_df.max(axis=1) - clone_hscn_df.min(axis=1)).gt(0.1)
         mode_freq_filter = mode_freq_df.min(axis=1).gt(self.min_consensus_snv_freq)
         clone_hscn_df = clone_hscn_df[variance_filter & mode_freq_filter]
         
@@ -483,6 +483,7 @@ class CloneAlign():
         snv = self.convert_df_to_torch(snv_df)
 
         clone_assign_list = []
+        clone_assign_prob_list = []
         other_params = dict()
 
         losses_dfs = []
@@ -491,11 +492,14 @@ class CloneAlign():
             current_results = self.run_clonealign_pyro(cnv, expr, hscn, snv_allele, snv, i)
             
             current_clone_assign = current_results['clone_assign_prob']
+            clone_assign_prob_list.append(current_clone_assign.to_numpy())
+            
             current_clone_assign_prob = current_clone_assign.max(1)
             current_clone_assign_discrete = current_clone_assign.idxmax(1)
 
             current_clone_assign_discrete[current_clone_assign_prob < self.min_clone_assign_prob] = np.nan
             clone_assign_list.append(current_clone_assign_discrete)
+            
             
             skip_names = ['clone_assign_prob', 'time', 'losses']
             for param_name in current_results:
@@ -534,6 +538,10 @@ class CloneAlign():
 
         # calculate NaN freq
         none_freq = clone_assign_max.isna().sum() / clone_assign_max.shape[0]
+
+        # calculate mean clone assign prob
+        clone_assign_prob_mean = np.mean(clone_assign_prob_list, axis=0)
+        other_params["clone_assign_prob_mean"] = clone_assign_prob_mean
 
         return none_freq, clone_assign_max, clone_assign, other_params, losses_result, times_result
       

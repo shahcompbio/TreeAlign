@@ -14,7 +14,8 @@ class CloneAlignClone(CloneAlign):
                  min_clone_assign_prob=0.8, min_clone_assign_freq=0.7, min_consensus_gene_freq=0.6,min_consensus_snv_freq=0.6,
                  max_temp=1.0, min_temp=0.5, anneal_rate=0.01, learning_rate=0.1, max_iter=400, rel_tol=5e-5, cell_dirichlet_alpha=1,
                  record_input_output=False, 
-                 min_clone_cell_count=10, initialize_seed=False):
+                 min_clone_cell_count=10, initialize_seed=False, 
+                 add_default = False):
         '''
         initialize CloneAlignClone object
         :param expr: expr read count matrix. row is gene, column is cell. (pandas.DataFrame)
@@ -41,6 +42,7 @@ class CloneAlignClone(CloneAlign):
 
         self.clone_df = clone
         self.clone_df.rename(columns={0: "cell_id", 1: "clone_id"})
+        self.add_default = add_default
 
         clone_cell_counts = self.clone_df['clone_id'].value_counts()
         cells_to_keep = clone_cell_counts[clone_cell_counts >= min_clone_cell_count].index.values
@@ -98,6 +100,10 @@ class CloneAlignClone(CloneAlign):
             raise ValueError('No valid genes or snps exist in the matrix after filtering. Maybe loose the filtering criteria?')
         print("cell count: " + str(cell_count))
 
+        # add clone with default values
+        if self.add_default:
+            clone_cnv_df['default'] = 1
+
         # record input
         if self.record_input_output:
             self.params_dict = dict()
@@ -128,8 +134,10 @@ class CloneAlignClone(CloneAlign):
         for i in range(cell_count):
             if np.isnan(clone_assign.values[i]):
                 self.clone_assign_dict[cell_names[i]] = np.nan
-            else:
+            elif int(clone_assign.values[i]) < len(clones):
                 self.clone_assign_dict[cell_names[i]] = clones[int(clone_assign.values[i])]
+            else:
+                self.clone_assign_dict[cell_names[i]] = 'default'
                 
                 
         # record gene_type_score

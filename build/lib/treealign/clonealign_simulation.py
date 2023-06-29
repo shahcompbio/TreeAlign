@@ -28,7 +28,7 @@ class CloneAlignSimulation:
         self.snv = obj.params_dict['input']['snv']
 
     def simulate_data(self, output_dir, index=1, gene_count=500, snp_count=500, cell_counts=[100, 1000, 5000],
-                      cnv_dependency_freqs=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], add_snp_read_count_prob=0.1):
+                      cnv_dependency_freqs=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], add_snp_read_count_prob=0.1, add_noises_per_cell=2000):
         if self.hscn is not None and self.snv_allele is not None and self.snv is not None and snp_count > 0:
             self.generate_allelic_data = True
         else:
@@ -62,12 +62,15 @@ class CloneAlignSimulation:
         simulated_clone_assignment_format = output_dir + "/simulated_clone_assignment_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
         simulated_gene_type_score_format = output_dir + "/simulated_gene_type_score_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
         simulated_expr_format = output_dir + "/simulated_expr_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
+        simulated_cnv_format = output_dir + "/simulated_cnv_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
 
         if self.generate_allelic_data:
             # sample snps
-            snp_ids = random.sample(range(self.snv.shape[0]), k=snp_count)
+            snp_ids = random.choices(range(self.hscn.shape[0]), k=snp_count)
+            # snp_ids = random.sample(range(self.snv.shape[0]), k=snp_count)
             simulated_snv_allele_format = output_dir + "/simulated_snv_allele_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
             simulated_snv_format = output_dir + "/simulated_snv_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv" 
+            simulated_hscn_format = output_dir + "/simulated_hscn_gene_{gene_count}_snp_{snp_count}_cell_{cell_count}_cnv_{cnv_freq}_index_{index}.csv"
         else:
             snp_ids = None           
 
@@ -77,7 +80,11 @@ class CloneAlignSimulation:
                 cell_sample = cell_samples[j]
 
                 simulated_cell_assignment, gene_type_score_simulated, expected_expr_df, simulated_snv, simulated_snv_allele = self.simulate_individual_data(
-                    gene_ids, snp_ids, cell_sample, gene_type_score_df[current_freq], add_snp_read_count_prob)
+                    gene_ids, snp_ids, cell_sample, gene_type_score_df[current_freq], add_snp_read_count_prob, add_noises_per_cell)
+                
+                simulated_cnv_df = self.clone_cnv_df.iloc[gene_ids, cell_sample]
+                
+                simulated_cnv_df.columns = range(len(cell_sample))
 
                 simulated_cell_assignment.to_csv(
                     simulated_clone_assignment_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
@@ -88,13 +95,19 @@ class CloneAlignSimulation:
                 expected_expr_df.to_csv(
                     simulated_expr_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
 
-                if self.generate_allelic_data:
-                    simulated_snv.to_csv(simulated_snv_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
+                simulated_cnv_df.to_csv(simulated_cnv_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
 
-                    simulated_snv_allele.to_csv(simulated_snv_allele_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
+                if self.generate_allelic_data:
+                    # reindex
+                    simulated_hscn = self.hscn.iloc[snp_ids, cell_sample].reset_index(drop=True)
+                    simulated_hscn.columns = simulated_snv.columns
+                    simulated_snv.reset_index(drop=True).to_csv(simulated_snv_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
+
+                    simulated_snv_allele.reset_index(drop=True).to_csv(simulated_snv_allele_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
+                    simulated_hscn.to_csv(simulated_hscn_format.format(cell_count=len(cell_sample), cnv_freq=current_freq, gene_count=gene_count, index=index, snp_count=snp_count))
                 
 
-    def simulate_individual_data(self, gene_ids, snp_ids, cell_sample, gene_type_score, add_snp_read_count_prob):
+    def simulate_individual_data(self, gene_ids, snp_ids, cell_sample, gene_type_score, add_snp_read_count_prob, add_noises_per_cell):
 
         current_cnv_df = self.clone_cnv_df.iloc[gene_ids, ]
         current_cnv = torch.tensor(current_cnv_df.values).transpose(0, 1)
@@ -124,7 +137,11 @@ class CloneAlignSimulation:
 
             # draw expr from Multinomial
             expr_simulated = pyro.sample('expr',
-                                         dist.Multinomial(total_count=15000, probs=expected_expr, validate_args=False))
+                                         dist.Multinomial(total_count=10000, probs=expected_expr, validate_args=False))
+            # add more noise
+            noise_prob = pyro.sample('noise_prob', dist.Dirichlet(torch.zeros(expr_simulated.shape[0], expr_simulated.shape[1]) + 1))
+            expr_simulated = expr_simulated + pyro.sample('noise_count', dist.Multinomial(total_count = add_noises_per_cell, probs = noise_prob, validate_args=False))
+
 
         # simulate allele specific data
         if self.generate_allelic_data:
@@ -152,13 +169,11 @@ class CloneAlignSimulation:
 
         cell_sample_names = self.clone_cnv_df.columns.values[cell_sample].tolist()
         simulated_cell_assignment = pd.DataFrame(
-            {'expr_cell_id': expected_expr_df.columns.values.tolist(), 'clone_id': cell_sample_names})
+            {'cell_id': expected_expr_df.columns.values.tolist(), 'clone_id': cell_sample_names})
         
         if self.generate_allelic_data:
             expected_snv = pd.DataFrame(current_snv.transpose(0, 1).detach().numpy())
-            expected_snv.index = current_hscn_df.index.values
             expected_snv_allele = pd.DataFrame(snv_allele_simulated.transpose(0, 1).detach().numpy())
-            expected_snv_allele.index = current_hscn_df.index.values
         else:
             expected_snv = None
             expected_snv_allele = None
