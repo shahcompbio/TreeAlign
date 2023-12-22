@@ -68,9 +68,9 @@ class CloneAlign():
             self.cnv_df[self.cnv_df > self.cnv_cutoff] = self.cnv_cutoff
         
         if contains_allele_specific_data:
-            intersect_index = self.hscn_df.index & self.snv_allele_df.index & self.snv_df.index
+            intersect_index = self.hscn_df.index.intersection(self.snv_allele_df.index).intersection(self.snv_df.index)
             
-            intersect_cells = self.snv_allele_df.columns & self.snv_df.columns
+            intersect_cells = self.snv_allele_df.columns.intersection(self.snv_df.columns)
             
             self.hscn_df = self.hscn_df.loc[intersect_index, ]
             self.snv_allele_df = self.snv_allele_df.loc[intersect_index, intersect_cells]
@@ -81,7 +81,7 @@ class CloneAlign():
             self.hscn_df[self.hscn_df == 1] = 0.9
         
         if contains_total_copy_data and contains_allele_specific_data:
-            intersect_cells = self.expr_df.columns & self.snv_allele_df.columns & self.snv_df.columns
+            intersect_cells = self.expr_df.columns.intersection(self.snv_allele_df.columns).intersection(self.snv_df.columns)
             
             self.expr_df = self.expr_df[intersect_cells]
             self.snv_allele_df = self.snv_allele_df[intersect_cells]
@@ -157,7 +157,7 @@ class CloneAlign():
         snv = self.snv_df[expr_cells]
         snv_allele = self.snv_allele_df[expr_cells]
         
-        intersect_index = clone_hscn_df.index & snv.index & snv_allele.index
+        intersect_index = clone_hscn_df.index.intersection(snv.index).intersection(snv_allele.index)
         
         clone_hscn_df = clone_hscn_df.loc[intersect_index, ]
         snv = snv.loc[intersect_index, ]
